@@ -33,7 +33,12 @@ PREFIX = "XWFP "
 
 
 def send_line(ser, text):
-    ser.write((text + "\n").encode("ascii"))
+    # 协议行是 ASCII。文件名可能含中文/其它非 ASCII 字符，
+    # 直接 encode("ascii") 会抛 UnicodeEncodeError 让整个脚本崩掉。
+    # 这里把非 ASCII 字符转义成 \xNN（板子侧原样存为文件名的一部分，
+    # 只作显示用，不影响安装），保证协议行始终可发送。
+    raw = text.encode("ascii", "backslashreplace").decode("ascii")
+    ser.write((raw + "\n").encode("ascii"))
     ser.flush()
 
 
