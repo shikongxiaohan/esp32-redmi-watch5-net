@@ -10,13 +10,20 @@
 - 浏览器多为手机（iOS Safari / Android Chrome），**移动端优先**
 - 所有资源必须能从 Flash 直接发出，**字体只能用系统字体栈**
 
-## 零、当前界面（v1.4.0 实测截图）
+## 零、实施结果（v1.5.0 实测截图）
+
+U1–U10 已全部完成并发布到 v1.5.0。完整截图位于 `docs/preview/ui-v1.5-*`，
+包含六个页面在 1100px 桌面与 390px 手机下的效果、性能页和配置页深色模式、
+配置表单就地错误提示。
 
 | 桌面（1100px） | 手机（390px） |
 | --- | --- |
-| ![性能监控页-桌面](preview/perf-page.png) | ![性能监控页-手机](preview/perf-mobile.png) |
+| ![运行状态页-桌面](preview/ui-v1.5-status-desktop.png) | ![性能监控页-手机](preview/ui-v1.5-perf-mobile.png) |
+| ![性能监控页-桌面](preview/ui-v1.5-perf-desktop.png) | ![配置页-手机](preview/ui-v1.5-config-mobile.png) |
+| ![配置页-深色](preview/ui-v1.5-config-dark.png) | ![配置校验-手机](preview/ui-v1.5-config-validation-mobile.png) |
 
-截图由 Chromium 实际渲染本项目页面得到（数据为模拟采样，仅用于核对排版）。
+截图由 Chromium 实际渲染本项目页面得到（性能数据为模拟采样，仅用于核对排版）。
+浏览器自动化已检查六页在两个视口下无横向溢出、无 JavaScript 错误，深色模式图表颜色正确。
 
 ---
 
@@ -88,8 +95,7 @@
 3. **最后 P2**：深色模式需检查 Canvas 图表在暗色下的可读性，
    悬浮条持久化会写 localStorage，需确认不影响 `file://` 之外的普通 HTTP 场景。
 
-**Flash 预算**：P0+P1 预计增加约 3–4KB（CSS 变量 + SVG 图标 + 卡片化样式），
-当前应用区占用 44.6%（1.87MB / 4MB），余量充足。
+**Flash 预算**：最终应用区增加至 1.81MB（45.1%），仍远低于 4MB 单槽上限，余量充足。
 
 **验收方式**：每个阶段用 Chromium 在 390×844（手机）与 1100×900（桌面）两个视口截图核对，
 再检查一遍 `prefers-color-scheme: dark` 与打印预览。

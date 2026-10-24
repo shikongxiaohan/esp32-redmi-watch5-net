@@ -27,7 +27,8 @@ DHCP 获取 IP、DNS 解析、TCP/UDP 联网，并额外获得**天气推送**�
 | 配网 | 无 WiFi 或连接失败时自动开 AP `RedmiWatch5Net-XXXX`（192.168.4.1） |
 | 自动恢复出厂 | **可选，默认关闭**。连续 N 分钟既无 WiFi 也无手表连接时清空配置并重启进配网；网页可设开关与超时 |
 | 板载 LED 指示 | 用板载 LED 指示运行状态（配网/联网/配对/装表盘/升级/故障）；**GPIO 引脚与点亮电平可在网页配置**，并提供点亮/熄灭测试按钮 |
-| 性能监控 | 独立「性能监控」页：CPU / 内存 / 存储 / 网络上下行 / 蓝牙吞吐 / 网络延迟 / 芯片温度，Canvas 折线图（仿任务管理器）；全站右下角常驻**悬浮占用条**，点击可展开/收起 |
+| 性能监控 | 独立「性能监控」页：CPU / 内存 / 存储 / 网络上下行 / 蓝牙吞吐 / 网络延迟 / 芯片温度，Canvas 折线图（仿任务管理器）；全站右下角常驻**悬浮占用条**，点击可展开/收起、可拖动贴边并记忆位置 |
+| Web UI | 状态结论条、统一状态色、内联 SVG 图标、深色模式、移动端表格卡片化、表单就地校验、统一错误页、加载骨架屏、打印样式，无外部字体/脚本/样式依赖 |
 
 ## 硬件与软件要求
 
@@ -47,13 +48,13 @@ DHCP 获取 IP、DNS 解析、TCP/UDP 联网，并额外获得**天气推送**�
 
 | 文件 | 用途 |
 | --- | --- |
-| `firmware/watch5-net-v1.4.0-full-16mb.bin` | USB 整片烧录，**首次必须用这个**（16MB 板） |
-| `firmware/watch5-net-v1.4.0-ota.bin` | Web「固件升级」页上传，后续免插线升级 |
+| `firmware/watch5-net-v1.5.0-full-16mb.bin` | USB 整片烧录，**首次必须用这个**（16MB 板） |
+| `firmware/watch5-net-v1.5.0-ota.bin` | Web「固件升级」页上传，后续免插线升级 |
 
 ```bash
 # USB 整片烧录（首次 / 救砖）
 esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 921600 \
-  write_flash -z 0x0 firmware/watch5-net-v1.4.0-full-16mb.bin
+  write_flash -z 0x0 firmware/watch5-net-v1.5.0-full-16mb.bin
 ```
 
 文件名规则：`watch5-net-<版本>-<用途>.bin`，详细说明与校验值见
@@ -150,7 +151,7 @@ python3 tools/push_watchface.py 表盘.bin --port COM3
 NVS 配置和蓝牙绑定，烧录后需要重新配网并重新配对手表。
 
 1. 打开 Web 页 →「固件升级」
-2. 选择 `firmware/watch5-net-v1.4.0-ota.bin`（自编译则是
+2. 选择 `firmware/watch5-net-v1.5.0-ota.bin`（自编译则是
    `.pio/build/esp32dev/firmware.bin`；**不要**选 `-full-16mb.bin` 合并镜像）
 3. 点「上传并升级」，页面会提示正在写入；保持供电和网络，设备完成后自动重启
 4. 新固件启动后，**成功连上已配置的 WiFi** 并稳定 60 秒会自动确认；若 180 秒仍
@@ -247,8 +248,8 @@ esp32-redmi-watch5-net/
 ├── partitions-16mb.csv     # 16MB 板分区表（= partitions.csv，保留副本）
 ├── sdkconfig.defaults      # ESP-IDF 配置（经典蓝牙/SPP）
 ├── firmware/               # 已编译的可烧录固件
-│   ├── watch5-net-v1.4.0-full-16mb.bin   # USB 整片烧录（首次）
-│   ├── watch5-net-v1.4.0-ota.bin        # Web OTA 升级
+│   ├── watch5-net-v1.5.0-full-16mb.bin   # USB 整片烧录（首次）
+│   ├── watch5-net-v1.5.0-ota.bin        # Web OTA 升级
 │   ├── SHA256SUMS.txt      # 校验值
 │   └── 使用说明.md          # 命名规则 / 烧录命令 / 自行编译
 ├── docs/
@@ -343,7 +344,7 @@ Flash 占用 44.1%（1.77MB / 4MB OTA 槽），RAM 26.5%（约 87KB / 320KB）�
 | 手表显示已连接但无法上网 | 看状态页「网关包」计数是否为 0；检查 WiFi 是否连通 |
 | WiFi 连不上 | 20 秒后自动进 AP 配网模式，重新配置 |
 | 日志出现 `watch hmac mismatch` | auth key 不对，重新提取 |
-| OTA 页上传被拒绝 | 确认上传的是 `-ota.bin`（如 `watch5-net-v1.4.0-ota.bin`），不是 `-full-16mb.bin` 合并镜像或表盘文件 |
+| OTA 页上传被拒绝 | 确认上传的是 `-ota.bin`（如 `watch5-net-v1.5.0-ota.bin`），不是 `-full-16mb.bin` 合并镜像或表盘文件 |
 | OTA 后反复重启 | 新固件未通过 180 秒健康检查会自动回滚；也可在升级页手动回滚 |
 | OTA 页显示无可用回滚 | 另一分区被表盘临时文件覆盖，或首次线刷尚无旧版本 |
 | LED 不亮 | 「配置」页的 GPIO 引脚填错（常见是 GPIO2），或点亮电平选反了；用「LED 测试」按钮确认 |

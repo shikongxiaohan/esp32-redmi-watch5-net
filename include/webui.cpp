@@ -147,117 +147,119 @@ bool WebUi::faceCacheBusy() const {
 // ---------------- 页面 ----------------
 static const char CSS[] =
     "<style>"
-    ":root{color-scheme:light;--brand:#c2410c;--brand-soft:#fff7ed;--ink:#172033;"
-    "--muted:#64748b;--line:#e2e8f0;--bg:#f4f6fa;--card:#fff;--danger:#b42318}"
-    "*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);"
+    ":root{color-scheme:light dark;--brand:#ea580c;--brand-hover:#c2410c;--brand-soft:#fff7ed;"
+    "--ink:#172033;--muted:#64748b;--line:#e2e8f0;--bg:#f4f6fa;--card:#fff;--input:#fff;"
+    "--ok:#087a45;--warn:#b45309;--bad:#b42318;--neutral:#526174;--ok-bg:#eaf8f0;"
+    "--warn-bg:#fff7e8;--bad-bg:#fff0ee;--neutral-bg:#eef2f7;--nav:#e9edf3;--shadow:#0f172a0a;"
+    "--grid:#e8edf3;--chart-text:#718096;--cpu:#ea580c;--mem:#2563eb;--sto:#059669;"
+    "--down:#7c3aed;--up:#0891b2;--btd:#db2777;--btu:#65a30d;--ping:#526174}"
+    "@media(prefers-color-scheme:dark){:root{--brand:#fb923c;--brand-hover:#fdba74;--brand-soft:#422006;"
+    "--ink:#e2e8f0;--muted:#a4b0c0;--line:#334155;--bg:#0f172a;--card:#1a2436;--input:#111c2e;"
+    "--ok:#4ade80;--warn:#fbbf24;--bad:#f87171;--neutral:#b2bfd0;--ok-bg:#123528;"
+    "--warn-bg:#3b2b12;--bad-bg:#40201f;--neutral-bg:#29364a;--nav:#111c2e;--shadow:#00000024;"
+    "--grid:#334155;--chart-text:#a4b0c0;--cpu:#fb923c;--mem:#60a5fa;--sto:#34d399;"
+    "--down:#c4b5fd;--up:#22d3ee;--btd:#f472b6;--btu:#a3e635;--ping:#cbd5e1}}"
+    "*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);"
     "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;"
     "font-size:15px;line-height:1.55;-webkit-text-size-adjust:100%}"
-    "header{background:#172033;color:#fff;border-bottom:3px solid #ea580c}"
-    ".head{max-width:960px;margin:auto;padding:22px 20px;display:flex;align-items:center;gap:13px}"
-    ".logo{width:42px;height:42px;border-radius:12px;background:#ea580c;display:grid;place-items:center;"
-    "font-size:20px;font-weight:800;flex:none}.brand{font-size:19px;font-weight:700;letter-spacing:.2px}"
-    ".subtitle{font-size:12px;color:#cbd5e1;margin-top:1px}"
-    "main{max-width:960px;margin:0 auto;padding:20px 20px 96px}"
-    "nav{display:flex;gap:6px;margin:0 0 22px;padding:5px;background:#e9edf3;border-radius:12px}"
-    "nav a{flex:1;text-align:center;padding:9px 12px;border-radius:8px;color:#475569;"
-    "text-decoration:none;font-size:14px;font-weight:600;white-space:nowrap}"
-    "nav a:hover{background:#fff;color:var(--brand)}nav a.active{background:#fff;color:var(--brand);"
-    "box-shadow:0 1px 4px #0f172a14}"
-    ".pagehead{margin:0 0 18px}.pagehead h1{font-size:25px;line-height:1.3;margin:0 0 5px}"
+    "header{background:#172033;color:#fff;border-bottom:3px solid var(--brand)}"
+    ".head{max-width:1040px;margin:auto;padding:20px;display:flex;align-items:center;gap:13px}"
+    ".logo{width:44px;height:44px;border-radius:13px;background:var(--brand);display:grid;place-items:center;flex:none}"
+    ".logo .icon{width:25px;height:25px}.brand{font-size:19px;font-weight:750;letter-spacing:.2px}"
+    ".subtitle{font-size:11px;color:#cbd5e1;margin-top:1px;letter-spacing:1px}"
+    "main{max-width:1040px;margin:0 auto;padding:20px 20px 100px}"
+    "nav{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 24px;padding:6px;"
+    "background:var(--nav);border:1px solid var(--line);border-radius:14px}"
+    "nav a{position:relative;display:flex;align-items:center;justify-content:center;gap:7px;min-height:44px;"
+    "padding:9px 8px;border-radius:9px;color:var(--neutral);text-decoration:none;font-size:14px;font-weight:650;white-space:nowrap}"
+    "nav a:hover{background:var(--card);color:var(--brand)}nav a.active{background:var(--card);color:var(--brand);box-shadow:0 2px 8px var(--shadow)}"
+    "nav a.active:after{content:'';position:absolute;left:28%;right:28%;bottom:2px;height:2px;border-radius:2px;background:var(--brand)}"
+    ".icon{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none;vertical-align:-4px}"
+    ".svg-defs{position:absolute;width:0;height:0;overflow:hidden}.pagehead{margin:0 0 20px}.pagehead h1{font-size:26px;line-height:1.25;margin:0 0 6px;letter-spacing:-.4px}"
     ".pagehead p{margin:0;color:var(--muted);font-size:14px}"
-    ".card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;"
-    "margin:0 0 16px;box-shadow:0 2px 8px #0f172a06}"
-    ".card h2{font-size:16px;margin:0 0 16px;display:flex;align-items:center;gap:8px}"
-    ".card h2:before{content:'';width:4px;height:17px;border-radius:3px;background:#ea580c}"
-    ".cardhead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}"
-    ".cardhead h2{margin:0}.cardhead .meta{color:var(--muted);font-size:13px;text-align:right}"
-    ".kv{margin:0;display:grid;grid-template-columns:minmax(145px,32%) 1fr}"
-    ".kv dt,.kv td,.kv th{padding:11px 0;border-bottom:1px solid #edf0f4;vertical-align:top}"
-    ".kv dt{color:var(--muted)}.kv dd{margin:0;font-weight:550;overflow-wrap:anywhere}"
-    ".kv dt:last-of-type,.kv dd:last-of-type{border-bottom:0}.kv tr:last-child th,.kv tr:last-child td{border:0}"
-    "table.kv{width:100%;border-collapse:collapse}.kv th{text-align:left;color:var(--muted);font-weight:400;width:32%}"
-    ".kv td{text-align:right;font-weight:550;overflow-wrap:anywhere}"
-    ".ok,.bad,.badge{display:inline-flex;align-items:center;gap:5px;font-weight:650}"
-    ".ok{color:#087a45}.bad{color:var(--danger)}.badge{border-radius:999px;padding:3px 9px;font-size:12px}"
-    ".badge.ok{background:#eaf8f0}.badge.bad{background:#fff0ee}.badge.neutral{background:#eef2f7;color:#526174}"
-    ".grid{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}.span2{grid-column:1/-1}"
-    ".field{margin-bottom:15px}.field:last-child{margin-bottom:0}"
-    "label{display:block;margin:0 0 6px;font-size:13px;font-weight:600;color:#3e4b60}"
-    "input,select{width:100%;min-height:44px;padding:10px 12px;border:1px solid #cbd5e1;background:#fff;"
-    "border-radius:9px;color:var(--ink);font:inherit;font-size:14px;outline:none}"
-    "input:focus,select:focus{border-color:#ea580c;box-shadow:0 0 0 3px #ea580c1c}"
-    "input[type=file]{padding:8px;background:#f8fafc}input[type=file]::file-selector-button{margin-right:10px;"
-    "border:0;border-radius:6px;padding:7px 12px;background:#ffedd5;color:#9a3412;font-weight:600}"
-    "button,.button{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:9px 18px;"
-    "border:1px solid transparent;border-radius:9px;background:var(--brand);color:#fff;font:inherit;font-size:14px;"
-    "font-weight:650;cursor:pointer;text-decoration:none;white-space:nowrap}"
-    "button:hover,.button:hover{background:#9a3412}button.secondary{background:#fff;color:#354156;border-color:#cbd5e1}"
-    "button.secondary:hover{background:#f8fafc}button.danger{background:#fff;color:var(--danger);border-color:#f0b4ae}"
-    "button.danger:hover{background:#fff5f4}button:disabled{cursor:not-allowed;background:#e2e8f0;color:#7b8798;border-color:#e2e8f0}"
-    "button:focus-visible,a:focus-visible{outline:3px solid #fb923c;outline-offset:3px}"
-    ".actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.actions.between{justify-content:space-between}"
-    "form{margin:0}form.inline{display:inline-flex;margin:0}.stack{display:grid;gap:10px}"
-    ".table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}"
-    ".data{width:100%;border-collapse:collapse;font-size:14px}.data th,.data td{padding:12px 14px;"
-    "border-bottom:1px solid #edf0f4;text-align:left;vertical-align:middle}.data th{background:#f8fafc;"
-    "color:#526174;font-size:12px;font-weight:650;white-space:nowrap}.data tr:last-child td{border:0}"
-    ".data td:last-child{text-align:right}.data .actions{justify-content:flex-end;flex-wrap:nowrap}"
-    ".filetd{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;overflow-wrap:anywhere}"
-    ".help,small{display:block;color:var(--muted);font-size:13px;line-height:1.55}.help{margin:10px 0 0}.flush{margin:0}"
-    ".notice{padding:12px 14px;border-radius:9px;background:#fff7ed;color:#9a3412;margin:0 0 16px;font-size:13px}"
-    ".danger-zone{border-color:#fecaca}.danger-zone h2:before{background:#dc2626}"
-    ".scanline{display:flex;align-items:end;gap:10px}.scanline .field{width:110px;margin:0;flex:none}"
-    "progress{display:block;width:100%;height:10px;margin:10px 0;border:0;border-radius:8px;overflow:hidden;background:#e8edf3}"
-    "progress::-webkit-progress-bar{background:#e8edf3}progress::-webkit-progress-value{background:#ea580c}"
-    "progress::-moz-progress-bar{background:#ea580c}.progress-label{font-size:22px;font-weight:750;color:var(--brand)}"
-    ".empty{padding:22px;text-align:center;color:var(--muted);background:#f8fafc;border-radius:10px}"
-    ".footer{text-align:center;color:#7b8798;font-size:12px;margin-top:22px}"
+    ".card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin:0 0 16px;box-shadow:0 3px 12px var(--shadow)}"
+    ".card h2{font-size:16px;margin:0 0 16px;display:flex;align-items:center;gap:9px}.card h2 .icon{color:var(--brand)}"
+    ".cardhead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.cardhead h2{margin:0}.cardhead .meta{color:var(--muted);font-size:13px;text-align:right}"
+    ".hero{position:relative;overflow:hidden;display:flex;align-items:center;gap:16px;padding:20px 22px;border:1px solid var(--line);border-radius:16px;margin:0 0 16px;background:var(--card)}"
+    ".hero:before{content:'';position:absolute;inset:0 auto 0 0;width:4px;background:var(--neutral)}.hero.good:before{background:var(--ok)}.hero.warn:before{background:var(--warn)}.hero.bad:before{background:var(--bad)}"
+    ".hero-icon{display:grid;place-items:center;width:46px;height:46px;border-radius:50%;background:var(--neutral-bg);color:var(--neutral);flex:none}"
+    ".hero.good .hero-icon{background:var(--ok-bg);color:var(--ok)}.hero.warn .hero-icon{background:var(--warn-bg);color:var(--warn)}.hero.bad .hero-icon{background:var(--bad-bg);color:var(--bad)}"
+    ".hero-icon .icon{width:24px;height:24px}.hero h2{margin:0 0 3px;font-size:18px}.hero p{margin:0;color:var(--muted);font-size:13px}.hero-chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}"
+    ".kv{margin:0;display:grid;grid-template-columns:minmax(145px,32%) 1fr}.kv dt,.kv td,.kv th{padding:11px 0;border-bottom:1px solid var(--line);vertical-align:top}"
+    ".kv dt{color:var(--muted)}.kv dd{margin:0;font-weight:550;overflow-wrap:anywhere}.kv tr:last-child th,.kv tr:last-child td{border:0}"
+    "table.kv{width:100%;border-collapse:collapse}.kv th{text-align:left;color:var(--muted);font-weight:400;width:32%}.kv td{text-align:right;font-weight:550;overflow-wrap:anywhere}"
+    ".ok,.bad,.warn,.badge{display:inline-flex;align-items:center;gap:5px;font-weight:650}.ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}"
+    ".badge{border-radius:999px;padding:3px 9px;font-size:12px;line-height:1.5}.badge.ok{background:var(--ok-bg);color:var(--ok)}.badge.bad{background:var(--bad-bg);color:var(--bad)}"
+    ".badge.warn{background:var(--warn-bg);color:var(--warn)}.badge.neutral{background:var(--neutral-bg);color:var(--neutral)}"
+    ".grid{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}.span2{grid-column:1/-1}.field{margin-bottom:16px}.field:last-child{margin-bottom:0}"
+    "label{display:block;margin:0 0 6px;font-size:13px;font-weight:650;color:var(--ink)}input,select{width:100%;min-height:44px;padding:10px 12px;border:1px solid var(--line);background:var(--input);border-radius:9px;color:var(--ink);font:inherit;font-size:14px;outline:none;transition:border-color .18s,box-shadow .18s}"
+    "input:focus,select:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}input.invalid,select.invalid{border-color:var(--bad);box-shadow:0 0 0 3px var(--bad-bg)}"
+    ".field-error{display:none;color:var(--bad);font-size:12px;margin-top:5px}.field-error.show{display:block}"
+    "input[type=file]{padding:7px;background:var(--input)}input[type=file]::file-selector-button{margin-right:10px;border:0;border-radius:6px;padding:8px 12px;background:var(--brand-soft);color:var(--brand);font-weight:650}"
+    "button,.button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:9px 18px;border:1px solid transparent;border-radius:9px;background:var(--brand);color:#fff;font:inherit;font-size:14px;font-weight:650;cursor:pointer;text-decoration:none;white-space:nowrap;transition:background .18s,border-color .18s}"
+    "button:hover,.button:hover{background:var(--brand-hover)}button.secondary{background:var(--card);color:var(--ink);border-color:var(--line)}button.secondary:hover{background:var(--neutral-bg)}"
+    "button.danger{background:var(--card);color:var(--bad);border-color:var(--bad)}button.danger:hover{background:var(--bad-bg)}button:disabled{cursor:not-allowed;background:var(--neutral-bg);color:var(--muted);border-color:var(--line)}"
+    "button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.perfdock:focus-visible{outline:3px solid var(--brand);outline-offset:3px}"
+    ".actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.actions.between{justify-content:space-between}form{margin:0}form.inline{display:inline-flex;margin:0}.stack{display:grid;gap:10px}"
+    ".table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:11px}.data{width:100%;border-collapse:collapse;font-size:14px}.data th,.data td{padding:12px 14px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}"
+    ".data th{background:var(--neutral-bg);color:var(--neutral);font-size:12px;font-weight:650;white-space:nowrap}.data tr:last-child td{border:0}.data td:last-child{text-align:right}.data .actions{justify-content:flex-end;flex-wrap:nowrap}"
+    ".filetd{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;overflow-wrap:anywhere}.help,small{display:block;color:var(--muted);font-size:13px;line-height:1.55}.help{margin:10px 0 0}.flush{margin:0}"
+    ".notice{padding:13px 15px;border:1px solid var(--warn);border-radius:11px;background:var(--warn-bg);color:var(--warn);margin:0 0 16px;font-size:13px}.danger-zone{border-color:var(--bad)}.danger-zone h2 .icon{color:var(--bad)}"
+    ".scanline{display:flex;align-items:end;gap:10px}.scanline .field{width:120px;margin:0;flex:none}progress{display:block;width:100%;height:10px;margin:10px 0;border:0;border-radius:8px;overflow:hidden;background:var(--neutral-bg)}"
+    "progress::-webkit-progress-bar{background:var(--neutral-bg)}progress::-webkit-progress-value{background:var(--brand)}progress::-moz-progress-bar{background:var(--brand)}.progress-label{font-size:22px;font-weight:750;color:var(--brand);font-variant-numeric:tabular-nums}"
+    ".empty{padding:22px;text-align:center;color:var(--muted);background:var(--neutral-bg);border-radius:10px}.footer{text-align:center;color:var(--muted);font-size:12px;margin-top:24px}.result{text-align:center;padding:30px 22px}.result .hero-icon{margin:0 auto 14px}.result h2{justify-content:center}.result .actions{justify-content:center;margin-top:18px}"
+    ".skeleton{padding:8px 0}.sk-row{display:grid;grid-template-columns:1.2fr 1fr .7fr;gap:18px;padding:15px 4px;border-bottom:1px solid var(--line)}.sk-row:last-child{border:0}.sk-row i{display:block;height:12px;border-radius:6px;background:var(--neutral-bg);animation:pulse 1.4s ease-in-out infinite}@keyframes pulse{50%{opacity:.45}}"
+    ".stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 0 16px}.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 16px;box-shadow:0 3px 12px var(--shadow)}"
+    ".stat .k{font-size:12px;color:var(--muted);font-weight:650;letter-spacing:.2px}.stat .v{font-size:27px;font-weight:750;line-height:1.2;margin-top:5px;font-variant-numeric:tabular-nums;transition:color .2s}.stat .v.changed{color:var(--brand)}"
+    ".stat .v small{display:inline;font-size:14px;font-weight:600;color:var(--muted);margin-left:2px}.stat .sub{font-size:12px;color:var(--muted);margin-top:3px}.chartbox{position:relative;height:200px;margin:2px 0 0}.chartbox canvas{width:100%;height:100%;display:block}"
+    ".legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--neutral);margin-top:10px}.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}.legend b{font-weight:650;font-variant-numeric:tabular-nums}"
+    ".sw.cpu{background:var(--cpu)}.sw.mem{background:var(--mem)}.sw.sto{background:var(--sto)}.sw.down{background:var(--down)}.sw.up{background:var(--up)}.sw.btd{background:var(--btd)}.sw.btu{background:var(--btu)}.sw.ping{background:var(--ping)}"
+    ".perfdock{position:fixed;right:14px;bottom:14px;z-index:50;display:flex;align-items:center;background:#172033f2;color:#e8eef7;border:1px solid #ffffff14;border-radius:15px;padding:9px 11px;box-shadow:0 8px 26px #0f172a3d;backdrop-filter:blur(10px);font-size:12px;font-variant-numeric:tabular-nums;cursor:grab;user-select:none;touch-action:none;transition:padding .18s}"
+    ".perfdock.left{right:auto;left:14px}.perfdock.dragging{cursor:grabbing;transition:none;opacity:.94}.perfdock .seg{display:flex;flex-direction:column;align-items:center;padding:0 9px;min-width:46px}.perfdock .seg+.seg{border-left:1px solid #ffffff1f}"
+    ".perfdock .lab{font-size:10px;color:#a8b6c8;letter-spacing:.3px}.perfdock .num{font-size:13px;font-weight:700;line-height:1.3;transition:color .2s}.perfdock .num.warn{color:#fbbf24}.perfdock .num.bad{color:#f87171}"
+    ".perfdock .dot{width:8px;height:8px;border-radius:50%;background:#34d399;flex:none;margin:0 5px}.perfdock .dot.warn{background:#fbbf24}.perfdock .dot.bad{background:#f87171}.perfdock .bar{width:34px;height:3px;background:#ffffff26;border-radius:2px;margin-top:4px;overflow:hidden}"
+    ".perfdock .bar i{display:block;height:100%;background:#60a5fa;border-radius:2px;transition:width .4s}.perfdock .bar i.warn{background:#fbbf24}.perfdock .bar i.bad{background:#f87171}.perfdock .chev{color:#a8b6c8;margin-left:5px;font-size:11px}.perfdock.mini .exp{display:none}.perfdock .exp{display:flex;align-items:center}"
     "@media(min-width:700px){.split{display:grid;grid-template-columns:1fr 1fr;gap:16px}.split .card{margin-bottom:16px}}"
-    "@media(max-width:600px){.head{padding:17px 16px}.logo{width:38px;height:38px}.brand{font-size:17px}"
-    "main{padding:16px 12px 104px}nav{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:18px}"
-    "nav a{padding:9px 6px}nav a:last-child:nth-child(odd){grid-column:1/-1}.pagehead h1{font-size:22px}.card{padding:16px;border-radius:12px}.grid{grid-template-columns:1fr}"
-    ".kv{grid-template-columns:minmax(110px,38%) 1fr}.kv th{width:38%}.data th,.data td{padding:11px 12px}"
-    "input,select{font-size:16px}button{min-height:44px}.actions:not(.between)>button{flex:1}.cardhead{align-items:flex-start}"
-    ".scanline{align-items:end}.scanline button{flex:1}.footer{margin-top:16px}}"
-    "@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}"
-    // ---- 性能监控 ----
-    ".stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 0 16px}"
-    ".stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:0 2px 8px #0f172a06}"
-    ".stat .k{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.2px}"
-    ".stat .v{font-size:26px;font-weight:750;line-height:1.2;margin-top:4px;font-variant-numeric:tabular-nums}"
-    // 全局 small 是 display:block，这里必须显式改回 inline，否则 % / ℃ 会换行
-    ".stat .v small{display:inline;font-size:14px;font-weight:600;color:var(--muted);margin-left:2px}"
-    ".stat .sub{font-size:12px;color:var(--muted);margin-top:2px}"
-    ".chartbox{position:relative;height:190px;margin:2px 0 0}"
-    ".chartbox canvas{width:100%;height:100%;display:block}"
-    ".legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:#4a5768;margin-top:10px}"
-    ".legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}"
-    ".legend b{font-weight:650;font-variant-numeric:tabular-nums}"
-    // ---- 快捷悬浮占用条（模仿汽水音乐任务栏播控）----
-    ".perfdock{position:fixed;right:14px;bottom:14px;z-index:50;display:flex;align-items:center;gap:0;"
-    "background:#172033f2;color:#e8eef7;border-radius:14px;padding:8px 12px;"
-    "box-shadow:0 8px 26px #0f172a3d;backdrop-filter:blur(8px);font-size:12px;"
-    "font-variant-numeric:tabular-nums;cursor:pointer;user-select:none;transition:padding .18s}"
-    ".perfdock:hover{padding:9px 14px}"
-    ".perfdock .seg{display:flex;flex-direction:column;align-items:center;padding:0 9px;min-width:46px}"
-    ".perfdock .seg+.seg{border-left:1px solid #ffffff1f}"
-    ".perfdock .lab{font-size:10px;color:#8fa0b6;letter-spacing:.3px}"
-    ".perfdock .num{font-size:13px;font-weight:700;line-height:1.3}"
-    ".perfdock .num.warn{color:#fbbf24}.perfdock .num.bad{color:#f87171}"
-    ".perfdock .dot{width:8px;height:8px;border-radius:50%;background:#34d399;flex:none;margin-left:4px}"
-    ".perfdock .dot.warn{background:#fbbf24}.perfdock .dot.bad{background:#f87171}"
-    ".perfdock .bar{width:34px;height:3px;background:#ffffff26;border-radius:2px;margin-top:4px;overflow:hidden}"
-    ".perfdock .bar i{display:block;height:100%;background:#60a5fa;border-radius:2px;transition:width .4s}"
-    ".perfdock .bar i.warn{background:#fbbf24}.perfdock .bar i.bad{background:#f87171}"
-    ".perfdock .chev{color:#7d8ea6;margin-left:4px;font-size:11px}"
-    ".perfdock.mini .exp{display:none}"
-    ".perfdock .exp{display:flex;align-items:center}"
-    "@media(max-width:600px){.stats{grid-template-columns:1fr 1fr}.chartbox{height:160px}"
-    ".perfdock{right:8px;bottom:8px;padding:6px 8px;font-size:11px}.perfdock .seg{padding:0 6px;min-width:38px}"
-    ".perfdock .seg.hide-m{display:none}}"
+    "@media(max-width:600px){.head{padding:16px}.logo{width:40px;height:40px}.brand{font-size:17px}main{padding:16px 12px 108px}nav{grid-template-columns:1fr 1fr;gap:5px;margin-bottom:20px}nav a{padding:8px 5px;font-size:13px}.pagehead h1{font-size:23px}.card{padding:16px;border-radius:13px}.grid{grid-template-columns:1fr}.kv th{width:38%}.hero{padding:17px 16px;gap:12px}.hero h2{font-size:16px}.hero-icon{width:40px;height:40px}"
+    "input,select{font-size:16px}.actions:not(.between)>button{flex:1}.cardhead{align-items:flex-start}.scanline button{flex:1}.footer{margin-top:18px}.stats{grid-template-columns:1fr 1fr;gap:10px}.stat{padding:13px}.stat .v{font-size:24px}.chartbox{height:170px}"
+    ".table-wrap{overflow:visible;border:0}.data,.data tbody,.data tr,.data td{display:block;width:100%}.data thead{display:none}.data tr{border:1px solid var(--line);border-radius:11px;margin-bottom:10px;padding:5px 12px;background:var(--card)}.data tr:last-child{margin-bottom:0}.data td{display:grid;grid-template-columns:minmax(86px,32%) 1fr;gap:10px;padding:10px 0;text-align:left!important;border-bottom:1px solid var(--line)}.data td:before{content:attr(data-label);color:var(--muted);font-size:12px}.data td:last-child{border:0}.data .actions{justify-content:flex-start;flex-wrap:wrap}.data td form,.data td button{width:100%}"
+    ".perfdock{right:8px;bottom:8px;padding:7px 8px;font-size:11px}.perfdock.left{left:8px}.perfdock .seg{padding:0 6px;min-width:38px}.perfdock .seg.hide-m{display:none}}"
+    "@media(max-width:360px){nav a .icon{display:none}.stats{grid-template-columns:1fr}.actions.between{align-items:flex-start;flex-direction:column}.actions.between form,.actions.between button{width:100%}}"
+    "@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}"
+    "@media print{:root{--bg:#fff;--card:#fff;--ink:#000;--muted:#333;--line:#bbb;--shadow:none}header,nav,.perfdock,button,form,.footer{display:none!important}body{background:#fff;color:#000}main{max-width:none;padding:0}.card,.hero,.stat{box-shadow:none;break-inside:avoid;margin-bottom:10px}.chartbox{display:none}.pagehead{margin-bottom:12px}}"
     "</style>";
 
 enum class UiPage { None, Status, Perf, Config, Pair, Watchface, Firmware };
+
+static void icon(String& h, const char* name) {
+    h += "<svg class='icon' aria-hidden='true'><use href='#i-";
+    h += name;
+    h += "'></use></svg>";
+}
+
+static void cardTitle(String& h, const char* iconName, const char* title) {
+    h += "<h2>";
+    icon(h, iconName);
+    h += title;
+    h += "</h2>";
+}
+
+static void svgSymbols(String& h) {
+    h += "<svg class='svg-defs' xmlns='http://www.w3.org/2000/svg' aria-hidden='true'>"
+         "<symbol id='i-watch' viewBox='0 0 24 24'><path d='M9 2h6l1 4H8l1-4ZM8 18h8l-1 4H9l-1-4Z'/><rect x='6' y='6' width='12' height='12' rx='3'/><path d='M18 10h2v4h-2M9 12l2 2 4-4'/></symbol>"
+         "<symbol id='i-status' viewBox='0 0 24 24'><path d='M4 17V9m5 8V5m6 12v-6m5 6V3'/></symbol>"
+         "<symbol id='i-perf' viewBox='0 0 24 24'><path d='M4 19a9 9 0 1 1 16 0M12 13l5-5'/><path d='M7 19h10'/></symbol>"
+         "<symbol id='i-config' viewBox='0 0 24 24'><circle cx='12' cy='12' r='3'/><path d='M19 13.5v-3l-2-.7-.6-1.4.9-1.9-2.1-2.1-1.9.9-1.4-.6-.7-2h-3l-.7 2-1.4.6-1.9-.9-2.1 2.1.9 1.9-.6 1.4-2 .7v3l2 .7.6 1.4-.9 1.9 2.1 2.1 1.9-.9 1.4.6.7 2h3l.7-2 1.4-.6 1.9.9 2.1-2.1-.9-1.9.6-1.4 2-.7Z'/></symbol>"
+         "<symbol id='i-pair' viewBox='0 0 24 24'><path d='M8 12a4 4 0 0 1 4-4h3a4 4 0 0 1 0 8h-1M16 12a4 4 0 0 1-4 4H9a4 4 0 0 1 0-8h1'/></symbol>"
+         "<symbol id='i-face' viewBox='0 0 24 24'><rect x='4' y='4' width='16' height='16' rx='4'/><circle cx='9' cy='10' r='1'/><circle cx='15' cy='10' r='1'/><path d='M8 15c2 2 6 2 8 0'/></symbol>"
+         "<symbol id='i-firmware' viewBox='0 0 24 24'><path d='M12 3v12m-4-4 4 4 4-4M5 17v3h14v-3'/></symbol>"
+         "<symbol id='i-link' viewBox='0 0 24 24'><path d='M5 12a8 8 0 0 1 14-5M19 12a8 8 0 0 1-14 5M5 3v4h4M19 21v-4h-4'/></symbol>"
+         "<symbol id='i-weather' viewBox='0 0 24 24'><path d='M7 17a4 4 0 1 1 1-7 6 6 0 0 1 11 3 3 3 0 0 1-1 4H7Z'/></symbol>"
+         "<symbol id='i-led' viewBox='0 0 24 24'><path d='M9 18h6m-5 3h4M8 14a6 6 0 1 1 8 0c-1 1-1 2-1 2H9s0-1-1-2ZM12 2V0M4 5 2 3m18 2 2-2'/></symbol>"
+         "<symbol id='i-check' viewBox='0 0 24 24'><circle cx='12' cy='12' r='9'/><path d='m8 12 3 3 5-6'/></symbol>"
+         "<symbol id='i-alert' viewBox='0 0 24 24'><path d='M12 3 2 21h20L12 3Z'/><path d='M12 9v5m0 3v1'/></symbol>"
+         "</svg>";
+}
 
 static void pageBegin(String& h, const char* title, UiPage active, const char* refresh = nullptr) {
     h += "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'>"
@@ -271,20 +273,27 @@ static void pageBegin(String& h, const char* title, UiPage active, const char* r
         h += "'>";
     }
     h += CSS;
-    h += "</head><body><header><div class='head'><div class='logo' aria-hidden='true'>W5</div>"
-         "<div><div class='brand'>Watch 5 网关</div><div class='subtitle'>REDMI WATCH 5 · ESP32</div></div></div></header><main>";
+    h += "</head><body>";
+    svgSymbols(h);
+    h += "<header><div class='head'><div class='logo' aria-hidden='true'>";
+    icon(h, "watch");
+    h += "</div><div><div class='brand'>Watch 5 网关</div>"
+         "<div class='subtitle'>REDMI WATCH 5 · ESP32</div></div></div></header><main>";
     if (active != UiPage::None) {
         h += "<nav aria-label='主导航'>";
         const char* paths[] = {"/", "/perf", "/config", "/pair", "/watchface", "/firmware"};
         const char* names[] = {"运行状态", "性能监控", "网关配置", "手表配对", "表盘管理", "固件升级"};
+        const char* icons[] = {"status", "perf", "config", "pair", "face", "firmware"};
         UiPage pages[] = {UiPage::Status, UiPage::Perf, UiPage::Config, UiPage::Pair,
                           UiPage::Watchface, UiPage::Firmware};
         for (size_t i = 0; i < 6; i++) {
             h += "<a href='";
             h += paths[i];
             h += active == pages[i] ? "' class='active' aria-current='page'>" : "'>";
+            icon(h, icons[i]);
+            h += "<span>";
             h += names[i];
-            h += "</a>";
+            h += "</span></a>";
         }
         h += "</nav>";
     }
@@ -318,8 +327,8 @@ static void pageBegin(String& h, const char* title, UiPage active, const char* r
  * 数据源：/api/perf，2 秒轮询（与后端采样间隔一致）
  */
 static void perfDock(String& h) {
-    h += "<div class='perfdock' id='pd' role='button' tabindex='0' "
-         "aria-label='系统占用快捷查看，点击展开或收起'>"
+    h += "<div class='perfdock' id='pd' role='button' tabindex='0' aria-expanded='false' "
+         "aria-label='系统占用快捷查看，点击展开或收起，拖动可贴靠左右边缘' title='点击展开或收起 · 拖动贴边'>"
          "<span class='dot' id='pd-dot'></span>"
          "<div class='seg'><span class='lab'>CPU</span><span class='num' id='pd-cpu'>–</span>"
          "<span class='bar'><i id='pd-cpu-b'></i></span></div>"
@@ -341,20 +350,26 @@ static void perfDock(String& h) {
 (function(){
   var dock=document.getElementById('pd');
   if(!dock) return;
-  // 小屏默认收起：悬浮条在 390px 宽度下会遮住图表
-  var mini=(window.innerWidth<600);
-  if(mini){ dock.classList.add('mini'); }
-  var chev=document.getElementById('pd-chev');
-  if(chev) chev.textContent=mini?'▶':'◀';
+  function load(k,f){try{return localStorage.getItem(k)||f;}catch(e){return f;}}
+  function save(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+  var mini=load('pd-mini',window.innerWidth<600?'1':'0')==='1';
+  var side=load('pd-side','right');
+  var dragged=false, drag=null;
+  function layout(){
+    dock.classList.toggle('mini',mini);
+    dock.classList.toggle('left',side==='left');
+    dock.setAttribute('aria-expanded',mini?'false':'true');
+    var ch=document.getElementById('pd-chev');
+    if(ch) ch.textContent=mini?'▶':'◀';
+  }
+  layout();
   function fmt(b){
     if(b===null||b===undefined||b<0) return '–';
     if(b<1024) return b+' B/s';
     if(b<1048576) return (b<10240?(b/1024).toFixed(1):Math.round(b/1024))+' KB/s';
     return (b/1048576).toFixed(2)+' MB/s';
   }
-  function cls(v,warn,bad){
-    return v>=bad?'bad':(v>=warn?'warn':'');
-  }
+  function cls(v,warn,bad){return v>=bad?'bad':(v>=warn?'warn':'');}
   function bar(id,v){
     var el=document.getElementById(id);
     if(!el) return;
@@ -368,36 +383,59 @@ static void perfDock(String& h) {
     el.className='num'+(c?(' '+c):'');
   }
   function tick(){
-    fetch('/api/perf').then(function(r){return r.json();}).then(function(d){
+    fetch('/api/perf').then(function(r){if(!r.ok)throw new Error();return r.json();}).then(function(d){
       var c=d.c||{};
       num('pd-cpu', c.cpu<0?'–':c.cpu+'%', c.cpu<0?'':cls(c.cpu,70,90));
       num('pd-mem',c.mem+'%',cls(c.mem,60,90));
       num('pd-sto',c.sto+'%',cls(c.sto,85,95));
       bar('pd-cpu-b', c.cpu<0?0:c.cpu);
       bar('pd-mem-b',c.mem); bar('pd-sto-b',c.sto);
-      num('pd-down',fmt(c.netDown));
-      num('pd-up',fmt(c.netUp));
-      var bt=(c.btUp||0)+(c.btDown||0);
-      num('pd-bt',fmt(bt));
-      num('pd-ping',(c.ping===null||c.ping===undefined||c.ping<0)?'–':c.ping+' ms',
-          (c.ping>=300?'bad':(c.ping>=150?'warn':'')));
-      num('pd-temp',(c.temp===null||c.temp===undefined||c.temp<-100)?'–':c.temp+'℃',
-          c.temp>=75?'bad':(c.temp>=60?'warn':''));
+      num('pd-down',fmt(c.netDown)); num('pd-up',fmt(c.netUp));
+      num('pd-bt',fmt((c.btUp||0)+(c.btDown||0)));
+      num('pd-ping',(c.ping===null||c.ping===undefined||c.ping<0)?'–':c.ping+' ms',c.ping>=300?'bad':(c.ping>=150?'warn':''));
+      num('pd-temp',(c.temp===null||c.temp===undefined||c.temp<-100)?'–':c.temp+'℃',c.temp>=75?'bad':(c.temp>=60?'warn':''));
       var dot=document.getElementById('pd-dot');
       if(dot) dot.className='dot'+(c.health===2?' bad':(c.health===1?' warn':''));
     }).catch(function(){});
   }
   dock.addEventListener('click',function(){
-    mini=!mini;
-    dock.classList.toggle('mini',mini);
-    var ch=document.getElementById('pd-chev');
-    if(ch) ch.textContent=mini?'▶':'◀';
+    if(dragged){dragged=false;return;}
+    mini=!mini; save('pd-mini',mini?'1':'0'); layout();
   });
   dock.addEventListener('keydown',function(e){
-    if(e.key==='Enter'||e.key===' '){ e.preventDefault(); dock.click(); }
+    if(e.key==='Enter'||e.key===' '){e.preventDefault();dock.click();}
+    if(e.key==='ArrowLeft'||e.key==='ArrowRight'){
+      e.preventDefault();side=e.key==='ArrowLeft'?'left':'right';save('pd-side',side);layout();
+    }
   });
-  tick();
-  setInterval(tick,2000);
+  dock.addEventListener('pointerdown',function(e){
+    if(e.button!==0) return;
+    var r=dock.getBoundingClientRect();
+    drag={x:e.clientX,y:e.clientY,left:r.left,top:r.top,moved:false};
+    dock.setPointerCapture(e.pointerId);
+  });
+  dock.addEventListener('pointermove',function(e){
+    if(!drag) return;
+    var dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+    if(!drag.moved&&Math.abs(dx)+Math.abs(dy)<7) return;
+    drag.moved=true;dragged=true;dock.classList.add('dragging');
+    dock.style.left=Math.max(4,Math.min(window.innerWidth-dock.offsetWidth-4,drag.left+dx))+'px';
+    dock.style.top=Math.max(4,Math.min(window.innerHeight-dock.offsetHeight-4,drag.top+dy))+'px';
+    dock.style.right='auto';dock.style.bottom='auto';
+  });
+  function endDrag(){
+    if(!drag) return;
+    if(drag.moved){
+      var r=dock.getBoundingClientRect();
+      side=(r.left+r.width/2<window.innerWidth/2)?'left':'right';
+      save('pd-side',side);
+    }
+    drag=null;dock.classList.remove('dragging');
+    dock.style.left='';dock.style.top='';dock.style.right='';dock.style.bottom='';layout();
+  }
+  dock.addEventListener('pointerup',endDrag);
+  dock.addEventListener('pointercancel',endDrag);
+  tick();setInterval(tick,2000);
 })();
 )JS";
     h += "</script>";
@@ -408,6 +446,25 @@ static void pageEnd(String& h, bool withDock = true) {
     // 性能页本身已有完整图表，不再叠加悬浮条（省一次 2 秒轮询）
     if (withDock) perfDock(h);
     h += "</body></html>";
+}
+
+static void sendResultPage(WebServer* server, int status, bool ok, const char* title,
+                           const char* message, const char* back, UiPage active) {
+    String h;
+    pageBegin(h, title, active);
+    h += "<section class='card result'>";
+    h += ok ? "<span class='badge ok'>操作完成</span>" : "<span class='badge bad'>操作未完成</span>";
+    cardTitle(h, ok ? "check" : "alert", title);
+    h += "<p>" + htmlEsc(message) + "</p><div class='actions'><a class='button secondary' href='";
+    h += back;
+    h += "'>返回</a></div></section>";
+    pageEnd(h, false);
+    server->send(status, "text/html; charset=utf-8", h);
+}
+
+static void sendErrorPage(WebServer* server, int status, const char* title, const char* message,
+                          const char* back, UiPage active) {
+    sendResultPage(server, status, false, title, message, back, active);
 }
 
 static const char* stateName(xw::MwState s) {
@@ -429,7 +486,26 @@ void WebUi::_handleRoot() {
     pageBegin(h, "运行状态", UiPage::Status, "5");
 
     bool bt = _wear && _wear->state() != xw::MwState::DISCONNECTED;
-    h += "<section class='card'><h2>连接状态</h2><table class='kv'>";
+    bool auth = _wear && _wear->authenticated();
+    bool net = _apActive || WiFi.status() == WL_CONNECTED;
+    bool ready = net && auth;
+    h += "<section class='hero " + String(ready ? "good" : ((net || bt) ? "warn" : "bad")) + "'>"
+         "<div class='hero-icon'>";
+    icon(h, ready ? "check" : "alert");
+    h += "</div><div><h2>";
+    h += ready ? "运行正常 · 已联网 · 手表已认证"
+               : (!net ? "需要配网 · WiFi 未连接" : (!bt ? "网络已就绪 · 等待手表连接" : "手表已连接 · 等待安全认证"));
+    h += "</h2><p>";
+    h += ready ? "网关服务可用，数据正在通过安全链路传输。" : "请根据下方连接状态完成配置，网关会自动继续连接。";
+    h += "</p><div class='hero-chips'>";
+    h += net ? "<span class='badge ok'>网络正常</span>" : "<span class='badge bad'>网络未连接</span>";
+    h += bt ? "<span class='badge ok'>蓝牙已连接</span>" : "<span class='badge neutral'>蓝牙未连接</span>";
+    h += auth ? "<span class='badge ok'>认证完成</span>" : "<span class='badge warn'>认证未完成</span>";
+    h += "</div></div></section>";
+
+    h += "<section class='card'>";
+    cardTitle(h, "link", "连接状态");
+    h += "<table class='kv'>";
     h += "<tr><th scope='row'>蓝牙 SPP</th><td>";
     h += bt ? "<span class='badge ok'>已连接</span>" : "<span class='badge bad'>未连接</span>";
     if (bt) {
@@ -468,8 +544,9 @@ void WebUi::_handleRoot() {
     std::snprintf(buf, sizeof(buf), "%lu 天 %02lu:%02lu:%02lu",
                   (unsigned long)(up / 86400), (unsigned long)(up / 3600 % 24),
                   (unsigned long)(up / 60 % 60), (unsigned long)(up % 60));
-    h += "<section class='card'><div class='cardhead'><h2>运行统计</h2>"
-         "<span class='meta'>每 5 秒自动刷新</span></div><table class='kv'>";
+    h += "<section class='card'><div class='cardhead'>";
+    cardTitle(h, "status", "运行统计");
+    h += "<span class='meta'>每 5 秒自动刷新</span></div><table class='kv'>";
     h += "<tr><th scope='row'>运行时间</th><td>" + String(buf) + "</td></tr>";
     h += "<tr><th scope='row'>固件版本</th><td>" + String(_ota ? _ota->version() : "dev") +
          " · " + String(_ota ? _ota->runningLabel() : "?") + "</td></tr>";
@@ -492,7 +569,9 @@ void WebUi::_handleRoot() {
     h += "</table></section>";
 
     if (_wx) {
-        h += "<section class='card'><h2>天气服务</h2><table class='kv'><tr><th scope='row'>当前位置</th><td>";
+        h += "<section class='card'>";
+        cardTitle(h, "weather", "天气服务");
+        h += "<table class='kv'><tr><th scope='row'>当前位置</th><td>";
         h += htmlEsc(_cfg->locationName);
         h += "</td></tr><tr><th scope='row'>服务状态</th><td>";
         if (!_wx->lastError.empty()) {
@@ -506,7 +585,9 @@ void WebUi::_handleRoot() {
                     String(_cfg->weatherRefreshMin) + " 分钟") + "</td></tr></table></section>";
     }
 
-    h += "<section class='card'><h2>设备操作</h2><div class='actions between'>"
+    h += "<section class='card'>";
+    cardTitle(h, "config", "设备操作");
+    h += "<div class='actions between'>";
          "<form method='post' action='/weather'><button type='submit' class='secondary'>立即刷新天气</button></form>"
          "<form method='post' action='/reboot'><button type='submit' class='danger'>重启设备</button></form>"
          "</div></section>";
@@ -519,9 +600,11 @@ void WebUi::_handleConfig() {
     String h;
     h.reserve(12288);
     pageBegin(h, "网关配置", UiPage::Config);
-    h += "<form method='post' action='/save'>";
+    h += "<form method='post' action='/save' id='config-form'>";
 
-    h += "<section class='card'><h2>WiFi 网络</h2><div class='grid'>";
+    h += "<section class='card'>";
+    cardTitle(h, "link", "WiFi 网络");
+    h += "<div class='grid'>";
     h += "<div class='field'><label for='ssid'>WiFi 名称（SSID）</label>"
          "<input id='ssid' name='ssid' maxlength='32' autocomplete='off' value='" +
          htmlEsc(c.wifiSsid) + "'></div>";
@@ -529,25 +612,30 @@ void WebUi::_handleConfig() {
          "<input id='pass' name='pass' maxlength='64' type='password' autocomplete='new-password' value='" +
          htmlEsc(c.wifiPass) + "'></div></div></section>";
 
-    h += "<section class='card'><h2>手表连接</h2>";
+    h += "<section class='card'>";
+    cardTitle(h, "pair", "手表连接");
     h += "<div class='field'><label for='authkey'>配对密钥</label>"
          "<input id='authkey' name='authkey' maxlength='32' pattern='[0-9a-fA-F]*' "
-         "aria-describedby='authkey-help' placeholder='16 字节十六进制密钥' value='" +
+         "aria-describedby='authkey-help authkey-error' placeholder='16 字节十六进制密钥' value='" +
          htmlEsc(c.authKeyHex) + "'><small id='authkey-help' class='help'>"
-         "从小米运动健康提取；留空使用默认密钥。</small></div>";
+         "从小米运动健康提取；留空使用默认密钥。</small>"
+         "<span class='field-error' id='authkey-error' role='alert'>请输入 32 位十六进制字符，或留空使用默认密钥。</span></div>";
     h += "<div class='field'><label for='watchmac'>手表蓝牙 MAC</label>"
          "<input id='watchmac' name='watchmac' class='filetd' maxlength='17' "
-         "aria-describedby='watchmac-help' placeholder='AA:BB:CC:DD:EE:FF' value='" +
+         "aria-describedby='watchmac-help watchmac-error' placeholder='AA:BB:CC:DD:EE:FF' value='" +
          htmlEsc(c.watchMac) + "'><small id='watchmac-help' class='help'>"
-         "留空时自动尝试已配对设备，也可在「手表配对」页扫描选择。</small></div></section>";
+         "留空时自动尝试已配对设备，也可在「手表配对」页扫描选择。</small>"
+         "<span class='field-error' id='watchmac-error' role='alert'>MAC 格式应为 AA:BB:CC:DD:EE:FF，或留空。</span></div></section>";
 
-    h += "<section class='card'><h2>天气与时间</h2><div class='grid'>";
+    h += "<section class='card'>";
+    cardTitle(h, "weather", "天气与时间");
+    h += "<div class='grid'>";
     h += "<div class='field span2'><label for='locname'>天气位置名称</label>"
          "<input id='locname' name='locname' maxlength='39' value='" + htmlEsc(c.locationName) + "'></div>";
-    h += "<div class='field'><label for='lat'>纬度</label><input id='lat' name='lat' inputmode='decimal' value='" +
-         String(c.latitude, 4) + "'></div>";
-    h += "<div class='field'><label for='lon'>经度</label><input id='lon' name='lon' inputmode='decimal' value='" +
-         String(c.longitude, 4) + "'></div>";
+    h += "<div class='field'><label for='lat'>纬度</label><input id='lat' name='lat' type='number' step='any' min='-90' max='90' aria-describedby='lat-error' value='" +
+         String(c.latitude, 4) + "'><span class='field-error' id='lat-error' role='alert'>纬度范围为 -90 到 90。</span></div>";
+    h += "<div class='field'><label for='lon'>经度</label><input id='lon' name='lon' type='number' step='any' min='-180' max='180' aria-describedby='lon-error' value='" +
+         String(c.longitude, 4) + "'><span class='field-error' id='lon-error' role='alert'>经度范围为 -180 到 180。</span></div>";
     h += "<div class='field'><label for='tzposix'>POSIX 时区</label>"
          "<input id='tzposix' name='tzposix' maxlength='47' aria-describedby='tz-help' value='" +
          htmlEsc(c.tzPosix) + "'><small id='tz-help' class='help'>中国大陆使用 CST-8</small></div>";
@@ -562,12 +650,17 @@ void WebUi::_handleConfig() {
          String(c.weatherRefreshMin) + "'><small id='wx-help' class='help'>分钟；0 表示仅手表请求时推送</small></div>";
     h += "</div></section>";
 
-    h += "<section class='card'><h2>配网 AP</h2><div class='field'>"
+    h += "<section class='card'>";
+    cardTitle(h, "link", "配网 AP");
+    h += "<div class='field'>"
          "<label for='appass'>AP 密码</label><input id='appass' name='appass' maxlength='64' "
-         "type='password' aria-describedby='ap-help' value='" + htmlEsc(c.apPass) + "'>"
-         "<small id='ap-help' class='help'>留空为开放网络；设置密码时至少 8 位。</small></div></section>";
+         "type='password' aria-describedby='ap-help appass-error' value='" + htmlEsc(c.apPass) + "'>"
+         "<small id='ap-help' class='help'>留空为开放网络；设置密码时至少 8 位。</small>"
+         "<span class='field-error' id='appass-error' role='alert'>AP 密码需至少 8 位，或留空使用开放网络。</span></div></section>";
 
-    h += "<section class='card'><h2>自动恢复出厂</h2><div class='grid'>";
+    h += "<section class='card'>";
+    cardTitle(h, "alert", "自动恢复出厂");
+    h += "<div class='grid'>";
     h += "<div class='field'><label for='aren'>状态</label><select id='aren' name='aren'>";
     h += c.autoResetEn ? "<option value='1' selected>开启</option><option value='0'>关闭（推荐）</option>"
                        : "<option value='1'>开启</option><option value='0' selected>关闭（推荐）</option>";
@@ -578,7 +671,9 @@ void WebUi::_handleConfig() {
     h += "</div><small class='help flush'>开启后，若连续这段时间内 <strong>WiFi 和手表都没有连接</strong>，"
          "设备会清空 WiFi、配对密钥与手表 MAC，然后重启进入配网模式。仅建议无人值守场景开启，默认关闭；"
          "设备处于配网 AP 模式时不计时。</small></section>";
-    h += "<section class='card'><h2>板载 LED 指示</h2><div class='grid'>";
+    h += "<section class='card'>";
+    cardTitle(h, "led", "板载 LED 指示");
+    h += "<div class='grid'>";
     h += "<div class='field'><label for='led_en'>状态</label><select id='led_en' name='led_en'>";
     h += c.ledEnabled ? "<option value='1' selected>开启</option><option value='0'>关闭</option>"
                       : "<option value='1'>开启</option><option value='0' selected>关闭</option>";
@@ -597,7 +692,12 @@ void WebUi::_handleConfig() {
          "<strong>快速双闪</strong>蓝牙配对中 · <strong>短亮长灭</strong>正在安装表盘 · "
          "<strong>方波</strong>正在升级固件。</small></section>";
 
-    h += "<section class='card'><h2>LED 测试</h2><div class='actions between'>"
+    h += "<div class='actions between card'><span class='help flush'>保存后设备将自动重启</span>"
+         "<button type='submit' id='config-save'>保存配置并重启</button></div></form>";
+
+    h += "<section class='card'>";
+    cardTitle(h, "led", "LED 测试");
+    h += "<div class='actions between'>"
          "<div>手动点亮 / 熄灭板载 LED<small>用于确认引脚与点亮电平是否正确</small></div>"
          "<div class='actions'>"
          "<form method='post' action='/led/test'><input type='hidden' name='on' value='1'>"
@@ -606,20 +706,56 @@ void WebUi::_handleConfig() {
          "<button type='submit' class='secondary'>熄灭</button></form>"
          "</div></div></section>";
 
-    h += "<div class='actions between card'><span class='help flush'>保存后设备将自动重启</span>"
-         "<button type='submit'>保存配置并重启</button></div></form>";
-
-    h += "<section class='card danger-zone'><h2>重置网络</h2>"
-         "<div class='actions between'><div>忘记当前 WiFi<small>清除配置并重新进入 AP 配网模式</small></div>"
+    h += "<section class='card danger-zone'>";
+    cardTitle(h, "alert", "重置网络");
+    h += "<div class='actions between'><div>忘记当前 WiFi<small>清除配置并重新进入 AP 配网模式</small></div>"
          "<form method='post' action='/forget' onsubmit='return confirm(\"确定清除 WiFi 配置并进入配网模式？\")'>"
          "<button type='submit' class='danger'>忘记 WiFi</button></form></div></section>";
+    h += "<script>" R"JS(
+(function(){
+  var form=document.getElementById('config-form');
+  if(!form) return;
+  form.noValidate=true;
+  function error(el,msg){
+    var field=el.closest('.field');
+    if(!field) return;
+    var e=field.querySelector('.field-error');
+    if(!e){e=document.createElement('span');e.className='field-error';e.id=el.id+'-error';e.setAttribute('role','alert');field.appendChild(e);}
+    if(msg)e.textContent=msg;
+    e.classList.toggle('show',!!msg);
+    el.classList.toggle('invalid',!!msg);
+    el.setAttribute('aria-invalid',msg?'true':'false');
+  }
+  function validate(el){
+    var v=el.value.trim(),msg='';
+    if(el.id==='authkey'&&v&&!/^[0-9a-fA-F]{32}$/.test(v))msg='请输入 32 位十六进制字符，或留空使用默认密钥。';
+    else if(el.id==='watchmac'&&v&&!/^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$/.test(v))msg='MAC 格式应为 AA:BB:CC:DD:EE:FF，或留空。';
+    else if(el.id==='appass'&&v&&v.length<8)msg='AP 密码需至少 8 位，或留空使用开放网络。';
+    else if(el.id==='lat'&&(v===''||Number(v)<-90||Number(v)>90))msg='纬度范围为 -90 到 90。';
+    else if(el.id==='lon'&&(v===''||Number(v)<-180||Number(v)>180))msg='经度范围为 -180 到 180。';
+    else if(!el.checkValidity())msg=el.validity.badInput?'请输入有效数字。':'请输入允许范围内的数值。';
+    error(el,msg);return !msg;
+  }
+  var fields=form.querySelectorAll('input,select');
+  Array.prototype.forEach.call(fields,function(el){
+    el.addEventListener('blur',function(){validate(el);});
+    el.addEventListener('input',function(){if(el.classList.contains('invalid'))validate(el);});
+  });
+  form.addEventListener('submit',function(e){
+    var first=null;
+    Array.prototype.forEach.call(fields,function(el){if(!validate(el)&&!first)first=el;});
+    if(first){e.preventDefault();first.focus();return;}
+    var b=document.getElementById('config-save');b.disabled=true;b.textContent='正在保存，设备即将重启…';
+  });
+})();
+)JS" "</script>";
     pageEnd(h);
     _server->send(200, "text/html; charset=utf-8", h);
 }
 
 void WebUi::_handleSave() {
     if (_otaBusy() || (_wf && _wf->busy())) {
-        _server->send(409, "text/plain; charset=utf-8", "固件升级或表盘安装进行中");
+        sendErrorPage(_server, 409, "暂时无法保存", "固件升级或表盘安装进行中，请等待当前任务完成。", "/config", UiPage::Config);
         return;
     }
     AppConfig& c = *_cfg;
@@ -704,7 +840,7 @@ void WebUi::_handleWeather() {
 
 void WebUi::_handleReboot() {
     if (_otaBusy() || (_wf && _wf->busy())) {
-        _server->send(409, "text/plain; charset=utf-8", "固件升级或表盘安装进行中");
+        sendErrorPage(_server, 409, "暂时无法重启", "固件升级或表盘安装进行中，请等待当前任务完成。", "/", UiPage::Status);
         return;
     }
     String h;
@@ -742,39 +878,45 @@ void WebUi::_handlePerf() {
          "<div class='sub'>ESP32 内部传感器</div></div>"
          "</div>";
 
-    h += "<section class='card'><div class='cardhead'><h2>CPU / 内存 / 存储</h2>"
-         "<span class='meta' id='meta-a'>最近 3 分钟</span></div>"
-         "<div class='chartbox'><canvas id='c-a'></canvas></div>"
+    h += "<section class='card'><div class='cardhead'>";
+    cardTitle(h, "perf", "CPU / 内存 / 存储");
+    h += "<span class='meta' id='meta-a'>最近 3 分钟</span></div>"
+         "<div class='chartbox'><canvas id='c-a' role='img' aria-label='CPU、内存和存储最近三分钟占用曲线'></canvas></div>"
          "<div class='legend'>"
-         "<span><i style='background:#ea580c'></i>CPU <b id='l-cpu'>–</b></span>"
-         "<span><i style='background:#2563eb'></i>内存 <b id='l-mem'>–</b></span>"
-         "<span><i style='background:#059669'></i>存储 <b id='l-sto'>–</b></span>"
+         "<span><i class='sw cpu'></i>CPU <b id='l-cpu'>–</b></span>"
+         "<span><i class='sw mem'></i>内存 <b id='l-mem'>–</b></span>"
+         "<span><i class='sw sto'></i>存储 <b id='l-sto'>–</b></span>"
          "</div></section>";
 
-    h += "<section class='card'><div class='cardhead'><h2>网络上下行</h2>"
-         "<span class='meta'>手表经网关的 TCP + UDP 流量</span></div>"
-         "<div class='chartbox'><canvas id='c-b'></canvas></div>"
+    h += "<section class='card'><div class='cardhead'>";
+    cardTitle(h, "link", "网络上下行");
+    h += "<span class='meta'>手表经网关的 TCP + UDP 流量</span></div>"
+         "<div class='chartbox'><canvas id='c-b' role='img' aria-label='网络上下行速率曲线'></canvas></div>"
          "<div class='legend'>"
-         "<span><i style='background:#7c3aed'></i>下行 <b id='l-down'>–</b></span>"
-         "<span><i style='background:#0891b2'></i>上行 <b id='l-up'>–</b></span>"
+         "<span><i class='sw down'></i>下行 <b id='l-down'>–</b></span>"
+         "<span><i class='sw up'></i>上行 <b id='l-up'>–</b></span>"
          "</div></section>";
 
-    h += "<section class='card'><div class='cardhead'><h2>蓝牙吞吐</h2>"
-         "<span class='meta'>SPP 链路实际收发</span></div>"
-         "<div class='chartbox'><canvas id='c-c'></canvas></div>"
+    h += "<section class='card'><div class='cardhead'>";
+    cardTitle(h, "pair", "蓝牙吞吐");
+    h += "<span class='meta'>SPP 链路实际收发</span></div>"
+         "<div class='chartbox'><canvas id='c-c' role='img' aria-label='蓝牙上下行速率曲线'></canvas></div>"
          "<div class='legend'>"
-         "<span><i style='background:#db2777'></i>蓝牙下行 <b id='l-btd'>–</b></span>"
-         "<span><i style='background:#65a30d'></i>蓝牙上行 <b id='l-btu'>–</b></span>"
+         "<span><i class='sw btd'></i>蓝牙下行 <b id='l-btd'>–</b></span>"
+         "<span><i class='sw btu'></i>蓝牙上行 <b id='l-btu'>–</b></span>"
          "</div></section>";
 
-    h += "<section class='card'><div class='cardhead'><h2>网络延迟</h2>"
-         "<span class='meta'>每 15 秒探测一次</span></div>"
-         "<div class='chartbox'><canvas id='c-d'></canvas></div>"
+    h += "<section class='card'><div class='cardhead'>";
+    cardTitle(h, "status", "网络延迟");
+    h += "<span class='meta'>每 15 秒探测一次</span></div>"
+         "<div class='chartbox'><canvas id='c-d' role='img' aria-label='网络延迟曲线'></canvas></div>"
          "<div class='legend'>"
-         "<span><i style='background:#475569'></i>TCP 握手往返 <b id='l-ping'>–</b></span>"
+         "<span><i class='sw ping'></i>TCP 握手往返 <b id='l-ping'>–</b></span>"
          "</div></section>";
 
-    h += "<section class='card'><h2>数据说明</h2><table class='kv'>"
+    h += "<section class='card'>";
+    cardTitle(h, "config", "数据说明");
+    h += "<table class='kv'>"
          "<tr><th scope='row'>CPU 占用</th><td>空闲任务钩子调用频率的相对估算值，不是硬件计数；"
          "只反映趋势与相对高低，绝对值可能有偏差</td></tr>"
          "<tr><th scope='row'>内存占用</th><td>8 位可分配堆（不含 PSRAM）的已用比例</td></tr>"
@@ -813,6 +955,7 @@ void WebUi::_handlePerf() {
       return s+' '+unit;
     };
   }
+  function css(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim();}
   // 画一张多线折线图
   function draw(cv, series, opt){
     var dpr=window.devicePixelRatio||1;
@@ -827,13 +970,13 @@ void WebUi::_handlePerf() {
     var padL=opt.padL||34,padR=8,padT=8,padB=16;
     var iw=w-padL-padR, ih=hh-padT-padB;
     // 网格
-    g.strokeStyle='#eef2f7'; g.lineWidth=1;
+    g.strokeStyle=css('--grid'); g.lineWidth=1;
     for(var i=0;i<=4;i++){
       var y=padT+ih*i/4;
       g.beginPath(); g.moveTo(padL,y); g.lineTo(w-padR,y); g.stroke();
     }
     // 纵轴刻度
-    g.fillStyle='#93a1b3'; g.font='10px -apple-system,sans-serif'; g.textAlign='right';
+    g.fillStyle=css('--chart-text'); g.font='10px -apple-system,sans-serif'; g.textAlign='right';
     for(var i=0;i<=4;i++){
       var y=padT+ih*i/4;
       var v=opt.max*(1-i/4);
@@ -857,7 +1000,7 @@ void WebUi::_handlePerf() {
       g.stroke();
       // 末端点
       var lv=hist[n-1][key];
-      if(lv!==null&&lv!==undefined){
+      if(lv!==null&&lv!==undefined&&lv>=0){
         var lx=padL+stepX*(n-1), ly=padT+ih*(1-Math.min(lv,opt.max)/opt.max);
         g.beginPath(); g.arc(lx,ly,2.6,0,Math.PI*2); g.fillStyle=color; g.fill();
       }
@@ -867,22 +1010,22 @@ void WebUi::_handlePerf() {
   var cb=document.getElementById('c-b');
   var cc=document.getElementById('c-c');
   var cd=document.getElementById('c-d');
-  function bump(el,cls){
-    el.className = cls || '';
-  }
   function setNum(id,txt){
     var el=document.getElementById(id);
-    if(el) el.innerHTML=txt;
+    if(!el||el.innerHTML===txt) return;
+    el.innerHTML=txt;
+    el.classList.add('changed');
+    setTimeout(function(){el.classList.remove('changed');},220);
   }
   function refresh(){
-    fetch('/api/perf').then(function(r){return r.json();}).then(function(d){
+    fetch('/api/perf').then(function(r){if(!r.ok)throw new Error();return r.json();}).then(function(d){
       hist=d.h||[];
       var cur=d.c||{};
       // 数字卡片
       setNum('s-cpu', (cur.cpu<0?'–':cur.cpu)+'<small>%</small>');
       setNum('s-mem', cur.mem+'<small>%</small>');
       setNum('s-sto', cur.sto+'<small>%</small>');
-      setNum('s-temp', (cur.temp===null||cur.temp===undefined||cur.temp<-100)?'–':cur.temp)+'<small>℃</small>';
+      setNum('s-temp', ((cur.temp===null||cur.temp===undefined||cur.temp<-100)?'–':cur.temp)+'<small>℃</small>');
       if(document.getElementById('s-mem-sub')) document.getElementById('s-mem-sub').textContent=
         fmtBytes(cur.memFree)+' 可用 / '+fmtBytes(cur.memTotal);
       if(document.getElementById('s-sto-sub')) document.getElementById('s-sto-sub').textContent=
@@ -897,21 +1040,21 @@ void WebUi::_handlePerf() {
       setNum('l-btu', fmtRate(cur.btUp||0));
       setNum('l-ping', (cur.ping===null||cur.ping===undefined||cur.ping<0)?'–':cur.ping+' ms');
       // 图表
-      draw(ca,[{key:'cpu',color:'#ea580c'},{key:'mem',color:'#2563eb'},{key:'sto',color:'#059669'}],
+      draw(ca,[{key:'cpu',color:css('--cpu')},{key:'mem',color:css('--mem')},{key:'sto',color:css('--sto')}],
            {max:100,fmt:function(v){return Math.round(v)+'%';}});
       var netMax=1;
       for(var i=0;i<hist.length;i++){
         netMax=Math.max(netMax,hist[i].netDown||0,hist[i].netUp||0);
       }
       netMax=netMax*1.15;
-      draw(cb,[{key:'netDown',color:'#7c3aed'},{key:'netUp',color:'#0891b2'}],
+      draw(cb,[{key:'netDown',color:css('--down')},{key:'netUp',color:css('--up')}],
            {max:netMax,padL:58,fmt:axisRate(netMax)});
       var cMax=1;
       for(var i=0;i<hist.length;i++){
         cMax=Math.max(cMax,hist[i].btDown||0,hist[i].btUp||0);
       }
       cMax=cMax*1.15;
-      draw(cc,[{key:'btDown',color:'#db2777'},{key:'btUp',color:'#65a30d'}],
+      draw(cc,[{key:'btDown',color:css('--btd')},{key:'btUp',color:css('--btu')}],
            {max:cMax,padL:58,fmt:axisRate(cMax)});
       // 延迟单独一张图：单位是 ms，与蓝牙吞吐（B/s）量纲不同，不能共用一个纵轴
       var pMax=100;
@@ -920,13 +1063,16 @@ void WebUi::_handlePerf() {
         if(pv!==null&&pv!==undefined&&pv>=0) pMax=Math.max(pMax,pv);
       }
       pMax=Math.ceil(pMax*1.2/50)*50; // 取到 50ms 的整数倍，刻度好读
-      draw(cd,[{key:'ping',color:'#475569'}],
+      draw(cd,[{key:'ping',color:css('--ping')}],
            {max:pMax,padL:48,fmt:function(v){return Math.round(v)+' ms';}});
     }).catch(function(){});
   }
   refresh();
   setInterval(refresh,2000);
-  window.addEventListener('resize',function(){ refresh(); });
+  window.addEventListener('resize',function(){refresh();});
+  var dark=window.matchMedia('(prefers-color-scheme: dark)');
+  if(dark.addEventListener)dark.addEventListener('change',refresh);
+  else if(dark.addListener)dark.addListener(refresh);
 })();
 )JS";
     h += "</script>";
@@ -1017,7 +1163,9 @@ void WebUi::_handlePair() {
     h.reserve(12288);
     pageBegin(h, "手表配对", UiPage::Pair, (_bt && _bt->scanning()) ? "3" : nullptr);
 
-    h += "<section class='card'><h2>当前设备</h2><table class='kv'>";
+    h += "<section class='card'>";
+    cardTitle(h, "watch", "当前设备");
+    h += "<table class='kv'>";
     h += "<tr><th scope='row'>手表 MAC</th><td class='filetd'>";
     if (_bt && _bt->hasWatchMac()) {
         h += htmlEsc(_bt->watchMacStr());
@@ -1034,7 +1182,8 @@ void WebUi::_handlePair() {
     }
     h += "</td></tr></table></section>";
 
-    h += "<section class='card'><div class='cardhead'><h2>扫描蓝牙设备</h2>";
+    h += "<section class='card'><div class='cardhead'>";
+    cardTitle(h, "pair", "扫描蓝牙设备");
     if (_bt && _bt->scanning()) h += "<span class='badge ok'>扫描中</span>";
     h += "</div>";
     if (_bt && _bt->scanning()) {
@@ -1050,17 +1199,18 @@ void WebUi::_handlePair() {
     h += "</section>";
 
     if (_bt && _bt->scanCount() > 0) {
-        h += "<section class='card'><div class='cardhead'><h2>扫描结果</h2><span class='meta'>共 " +
-             String(_bt->scanCount()) + " 个设备</span></div><div class='table-wrap'><table class='data'>"
+        h += "<section class='card'><div class='cardhead'>";
+        cardTitle(h, "status", "扫描结果");
+        h += "<span class='meta'>共 " + String(_bt->scanCount()) + " 个设备</span></div><div class='table-wrap'><table class='data'>"
              "<thead><tr><th scope='col'>设备名称</th><th scope='col'>MAC 地址</th>"
              "<th scope='col'>信号</th><th scope='col'>操作</th></tr></thead><tbody>";
         for (size_t i = 0; i < _bt->scanCount(); i++) {
             const BtLink::Device& d = _bt->scanResult(i);
             bool isTarget = _bt->hasWatchMac() && String(d.mac) == String(_bt->watchMacStr());
-            h += "<tr><td>" + htmlEsc(d.name[0] ? d.name : "(未广播名称)");
+            h += "<tr><td data-label='设备名称'>" + htmlEsc(d.name[0] ? d.name : "(未广播名称)");
             if (isTarget) h += " <span class='badge ok'>当前设备</span>";
-            h += "</td><td class='filetd'>" + String(d.mac) + "</td><td>" + String(d.rssi) + " dBm</td>";
-            h += "<td><form method='post' action='/pair/save'><input type='hidden' name='mac' value='" +
+            h += "</td><td data-label='MAC 地址' class='filetd'>" + String(d.mac) + "</td><td data-label='信号'>" + String(d.rssi) + " dBm</td>";
+            h += "<td data-label='操作'><form method='post' action='/pair/save'><input type='hidden' name='mac' value='" +
                  String(d.mac) + "'><button type='submit'" + String(isTarget ? " disabled" : "") +
                  ">选择</button></form></td></tr>";
         }
@@ -1072,13 +1222,14 @@ void WebUi::_handlePair() {
         BtLink::Device bondedSnap[10];
         size_t bondedN = _bt->copyBonded(bondedSnap, 10);
         if (bondedN > 0) {
-            h += "<section class='card'><div class='cardhead'><h2>已绑定设备</h2><span class='meta'>共 " +
-                 String(bondedN) + " 个</span></div><div class='table-wrap'><table class='data'>"
+            h += "<section class='card'><div class='cardhead'>";
+            cardTitle(h, "link", "已绑定设备");
+            h += "<span class='meta'>共 " + String(bondedN) + " 个</span></div><div class='table-wrap'><table class='data'>"
                  "<thead><tr><th scope='col'>MAC 地址</th><th scope='col'>操作</th></tr></thead><tbody>";
             for (size_t i = 0; i < bondedN; i++) {
                 const BtLink::Device& d = bondedSnap[i];
-                h += "<tr><td class='filetd'>" + String(d.mac) + "</td>";
-                h += "<td><form method='post' action='/pair/save'><input type='hidden' name='mac' value='" +
+                h += "<tr><td data-label='MAC 地址' class='filetd'>" + String(d.mac) + "</td>";
+                h += "<td data-label='操作'><form method='post' action='/pair/save'><input type='hidden' name='mac' value='" +
                      String(d.mac) + "'><button type='submit' class='secondary'>选择</button></form></td></tr>";
             }
             h += "</tbody></table></div><small class='help'>已绑定设备无需再次确认；若手表已恢复出厂设置，"
@@ -1086,7 +1237,9 @@ void WebUi::_handlePair() {
         }
     }
 
-    h += "<section class='card danger-zone'><h2>自动配对模式</h2><div class='actions between'>"
+    h += "<section class='card danger-zone'>";
+    cardTitle(h, "alert", "自动配对模式");
+    h += "<div class='actions between'>";
          "<div>清除指定手表<small>改为自动尝试已绑定设备</small></div>"
          "<form method='post' action='/pair/save' onsubmit='return confirm(\"确定清除手表 MAC，改为自动尝试已配对设备？\")'>"
          "<input type='hidden' name='mac' value=''><button type='submit' class='danger'>清除手表 MAC</button>"
@@ -1118,7 +1271,7 @@ void WebUi::_handlePairStop() {
 
 void WebUi::_handlePairSave() {
     if (_otaBusy() || (_wf && _wf->busy())) {
-        _server->send(409, "text/plain; charset=utf-8", "固件升级或表盘安装进行中");
+        sendErrorPage(_server, 409, "暂时无法保存配对", "固件升级或表盘安装进行中，请等待当前任务完成。", "/pair", UiPage::Pair);
         return;
     }
     AppConfig& c = *_cfg;
@@ -1213,7 +1366,8 @@ void WebUi::_handleWatchface() {
     bool busy = _wf && _wf->busy();
     bool auth = _wear && _wear->authenticated();
     bool pending = _ota && _ota->pendingVerify();
-    pageBegin(h, "表盘管理", UiPage::Watchface, busy ? "2" : nullptr);
+    bool loadingFaces = auth && _faces && _faces->empty() && !busy;
+    pageBegin(h, "表盘管理", UiPage::Watchface, (busy || loadingFaces) ? "2" : nullptr);
 
     if (!auth) {
         h += "<div class='notice'><strong>手表尚未完成认证</strong><br>"
@@ -1224,7 +1378,8 @@ void WebUi::_handleWatchface() {
     }
 
     if (_wf) {
-        h += "<section class='card'><div class='cardhead'><h2>安装状态</h2>";
+        h += "<section class='card'><div class='cardhead'>";
+        cardTitle(h, "firmware", "安装状态");
         if (busy) {
             h += "<span class='badge neutral'>";
             h += _wfStateName(_wf->state());
@@ -1247,8 +1402,10 @@ void WebUi::_handleWatchface() {
         h += "</section>";
     }
 
-    h += "<section class='card'><h2>上传并安装</h2>"
-         "<form method='post' action='/watchface/upload' enctype='multipart/form-data'>"
+    h += "<section class='card'>";
+    cardTitle(h, "face", "上传并安装");
+    h += "<form method='post' action='/watchface/upload' enctype='multipart/form-data' "
+         "onsubmit=\"var b=this.querySelector('button');b.disabled=true;b.textContent='正在上传，请勿关闭页面…'\">";
          "<div class='field'><label for='fw'>选择表盘文件</label>"
          "<input id='fw' type='file' name='fw' accept='.bin' required aria-describedby='wf-upload-help'>"
          "<small id='wf-upload-help' class='help'>上传后直接安装到手表；支持米坛社区等渠道的 .bin 文件。"
@@ -1257,7 +1414,9 @@ void WebUi::_handleWatchface() {
          ">上传并安装到手表</button></form></section>";
 
     // 缓存包卡片：安装成功自动删除；失败保留可重装；48 小时未用自动清理
-    h += "<section class='card'><div class='cardhead'><h2>安装包缓存</h2><span class='meta'>";
+    h += "<section class='card'><div class='cardhead'>";
+    cardTitle(h, "firmware", "安装包缓存");
+    h += "<span class='meta'>";
     if (_fcMeta.present) {
         h += String(_fcMeta.size / 1024) + " KB</span></div>";
         h += "<p class='help flush'>已缓存：<strong>" + htmlEsc(_fcMeta.name.c_str()) + "</strong>（" +
@@ -1282,7 +1441,9 @@ void WebUi::_handleWatchface() {
     h += "</section>";
 
     const esp_partition_t* stage = _wfStage.partition();
-    h += "<section class='card'><div class='cardhead'><h2>临时安装区</h2><span class='meta'>";
+    h += "<section class='card'><div class='cardhead'>";
+    cardTitle(h, "firmware", "临时安装区");
+    h += "<span class='meta'>";
     if (stage) h += String(stage->size / 1024) + " KB 可用";
     else h += "不可用";
     h += "</span></div><p class='help flush'>表盘先写入临时安装区。";
@@ -1296,16 +1457,17 @@ void WebUi::_handleWatchface() {
     }
     h += "</p></section>";
 
-    h += "<section class='card'><div class='cardhead'><div><h2>手表端表盘</h2></div>"
-         "<form method='post' action='/watchface/refresh'><button type='submit' class='secondary'" +
+    h += "<section class='card'><div class='cardhead'><div>";
+    cardTitle(h, "watch", "手表端表盘");
+    h += "</div><form method='post' action='/watchface/refresh'><button type='submit' class='secondary'" +
          String(auth ? "" : " disabled") + ">刷新列表</button></form></div>";
     if (_faces && !_faces->empty()) {
         h += "<div class='table-wrap'><table class='data'><thead><tr><th scope='col'>名称</th>"
              "<th scope='col'>ID</th><th scope='col'>操作</th></tr></thead><tbody>";
         for (const WatchfaceEntry& e : *_faces) {
-            h += "<tr><td>" + htmlEsc(e.name.empty() ? e.id.c_str() : e.name.c_str());
+            h += "<tr><td data-label='名称'>" + htmlEsc(e.name.empty() ? e.id.c_str() : e.name.c_str());
             if (e.active) h += " <span class='badge ok'>使用中</span>";
-            h += "</td><td class='filetd'>" + htmlEsc(e.id.c_str()) + "</td><td><div class='actions'>";
+            h += "</td><td data-label='ID' class='filetd'>" + htmlEsc(e.id.c_str()) + "</td><td data-label='操作'><div class='actions'>";
             if (!e.active) {
                 h += "<form method='post' action='/watchface/set'>"
                      "<input type='hidden' name='id' value='" + htmlEsc(e.id.c_str()) + "'>"
@@ -1320,6 +1482,12 @@ void WebUi::_handleWatchface() {
             h += "</div></td></tr>";
         }
         h += "</tbody></table></div>";
+    } else if (loadingFaces) {
+        h += "<div class='skeleton' aria-label='正在加载表盘列表'>"
+             "<div class='sk-row'><i></i><i></i><i></i></div>"
+             "<div class='sk-row'><i></i><i></i><i></i></div>"
+             "<div class='sk-row'><i></i><i></i><i></i></div></div>"
+             "<small class='help'>正在向手表获取表盘列表，页面每 2 秒自动刷新。</small>";
     } else {
         h += "<div class='empty'>尚未获取手表表盘列表，连接并认证后点击「刷新列表」。</div>";
     }
@@ -1603,22 +1771,23 @@ void WebUi::_handleWfRetry() {
         return;
     }
     if (_wfStage.busy() || (_wf && _wf->busy()) || _otaBusy()) {
-        _server->send(409, "text/plain; charset=utf-8", "设备忙，请稍后重试");
+        sendErrorPage(_server, 409, "暂时无法重新安装", "设备正忙，请等待当前任务完成。", "/watchface", UiPage::Watchface);
         return;
     }
     if (!_wear || !_wear->authenticated()) {
-        _server->send(409, "text/plain; charset=utf-8", "手表未连接或未认证");
+        sendErrorPage(_server, 409, "手表尚未就绪", "请先连接手表并完成安全认证，再重新安装缓存包。", "/pair", UiPage::Pair);
         return;
     }
     if (!_wfStage.openCached(_fcMeta.size)) {
-        _server->send(409, "text/plain; charset=utf-8", "缓存包不可用");
+        sendErrorPage(_server, 409, "缓存包不可用", "缓存文件可能已被清理或分区正在被使用。", "/watchface", UiPage::Watchface);
         return;
     }
     _wfSrc.open(_wfStage.partition(), 0, _fcMeta.size);
     if (_wf) {
         _wf->setMaxBytes(_wfStage.capacity());
         if (!_wf->start(_wfSrc)) {
-            _server->send(409, "text/plain; charset=utf-8", "安装器忙");
+            sendErrorPage(_server, 409, "安装器正忙", "请等待当前安装任务结束后再试。", "/watchface", UiPage::Watchface);
+            return;
         }
     }
     _server->sendHeader("Location", "/watchface", true);
@@ -1628,7 +1797,7 @@ void WebUi::_handleWfRetry() {
 // 手动删除缓存的安装包
 void WebUi::_handleWfCacheDelete() {
     if (_wfStage.busy() || (_wf && _wf->busy())) {
-        _server->send(409, "text/plain; charset=utf-8", "设备忙，请稍后再删除");
+        sendErrorPage(_server, 409, "暂时无法删除缓存", "设备正在上传或安装，请等待当前任务完成。", "/watchface", UiPage::Watchface);
         return;
     }
     _fcErase();
@@ -1684,7 +1853,9 @@ void WebUi::_handleFirmware() {
     bool blocked = wfBusy || _otaBusy() || pending;
     pageBegin(h, "固件升级", UiPage::Firmware);
 
-    h += "<section class='card'><h2>当前固件</h2><table class='kv'>";
+    h += "<section class='card'>";
+    cardTitle(h, "firmware", "当前固件");
+    h += "<table class='kv'>";
     h += "<tr><th scope='row'>版本</th><td>" + String(_ota ? _ota->version() : "dev") + "</td></tr>";
     h += "<tr><th scope='row'>运行分区</th><td class='filetd'>" +
          String(_ota ? _ota->runningLabel() : "?") + "</td></tr>";
@@ -1701,13 +1872,16 @@ void WebUi::_handleFirmware() {
     if (pending) {
         h += "<div class='notice'>新固件正在等待启动确认。确认后旧固件将不再作为自动回滚目标；"
              "若设备无法联网，180 秒后会自动回滚。</div>";
-        h += "<section class='card'><h2>确认新固件</h2><div class='actions between'>"
+        h += "<section class='card'>";
+        cardTitle(h, "check", "确认新固件");
+        h += "<div class='actions between'>";
              "<span class='help flush'>当前版本工作正常时，可立即确认。</span>"
              "<form method='post' action='/firmware/keep'><button type='submit' class='secondary'>"
              "保留当前固件</button></form></div></section>";
     }
 
-    h += "<section class='card'><h2>上传固件</h2>"
+    h += "<section class='card'>";
+    cardTitle(h, "firmware", "上传固件");
          "<form method='post' action='/update' enctype='multipart/form-data' "
          "onsubmit=\"this.querySelector('button').disabled=true;this.querySelector('button').textContent='正在写入，请勿断电…'\">"
          "<div class='field'><label for='fwbin'>固件文件</label>"
@@ -1721,7 +1895,9 @@ void WebUi::_handleFirmware() {
     h += "</section>";
 
     if (_ota && _ota->rollbackAvailable()) {
-        h += "<section class='card danger-zone'><h2>回滚固件</h2><div class='actions between'>"
+        h += "<section class='card danger-zone'>";
+        cardTitle(h, "alert", "回滚固件");
+        h += "<div class='actions between'>";
              "<div>切换回另一分区<small>回滚后设备会重启，配置和表盘不受影响</small></div>"
              "<form method='post' action='/firmware/rollback' "
              "onsubmit='return confirm(\"确定回滚到上一版本固件？设备将重启。\")'>"
@@ -1843,8 +2019,11 @@ void WebUi::_handleLedTest() {
         else _led->testOff();
         ok = true;
     }
-    _server->send(ok ? 200 : 409, "text/plain; charset=utf-8",
-                  ok ? (on ? "ON" : "OFF") : "LED 未启用");
+    sendResultPage(_server, ok ? 200 : 409, ok,
+                   ok ? (on ? "LED 已点亮" : "LED 已熄灭") : "LED 未启用",
+                   ok ? "测试命令已执行；常亮测试 10 秒后会自动退出。"
+                      : "请在下方 LED 配置中启用指示功能，并确认 GPIO 引脚有效。",
+                   "/config", UiPage::Config);
 }
 
 void WebUi::_handleNotFound() {
@@ -1853,7 +2032,7 @@ void WebUi::_handleNotFound() {
         _server->sendHeader("Location", "http://192.168.4.1/config", true);
         _server->send(302, "text/plain", "");
     } else {
-        _server->send(404, "text/plain; charset=utf-8", "404");
+        sendErrorPage(_server, 404, "页面不存在", "请求的地址不存在或已被移动。", "/", UiPage::Status);
     }
 }
 
@@ -1901,15 +2080,14 @@ void WebUi::begin(MiWear& wear, NetGw& gw, WeatherService& wx, AppConfig& cfg, B
     _server->on("/firmware/keep", HTTP_POST, [this]() { _handleFwKeep(); });
     _server->on("/forget", HTTP_POST, [this]() {
         if (_otaBusy() || (_wf && _wf->busy())) {
-            _server->send(409, "text/plain; charset=utf-8", "升级或安装进行中，无法重置网络");
+            sendErrorPage(_server, 409, "暂时无法重置网络", "升级或安装进行中，请等待当前任务完成。", "/config", UiPage::Config);
             return;
         }
         _cfg->wifiSsid[0] = 0;
         _cfg->wifiPass[0] = 0;
         saveConfig(*_cfg);
-        _server->send(200, "text/html; charset=utf-8",
-                      "<!DOCTYPE html><html><head><meta charset='utf-8'></head><body>"
-                      "WiFi 已清除，正在重启进入配网模式…</body></html>");
+        sendResultPage(_server, 200, true, "WiFi 配置已清除",
+                       "设备正在重启并进入配网模式，请连接 RedmiWatch5Net 热点。", "/", UiPage::Config);
         delay(500);
         ESP.restart();
     });
