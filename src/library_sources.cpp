@@ -26,3 +26,5 @@
 #include "../include/serialpush.cpp"
 #include "../include/ledlogic.cpp"
 #include "../include/led.cpp"
+#include "../include/perfdata.cpp"
+#include "../include/perfmon.cpp"

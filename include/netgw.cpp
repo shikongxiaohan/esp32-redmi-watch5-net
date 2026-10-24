@@ -400,7 +400,8 @@ void NetGw::_handleUdp(uint32_t srcBe, uint32_t dstBe, const uint8_t* udp, size_
     }
     f->lastActiveMs = _nowMs();
     if (f->sock >= 0 && dlen > 0) {
-        _up.sendData(f->sock, data, dlen);
+        int w = _up.sendData(f->sock, data, dlen);
+        if (w > 0) udpBytesUp += uint32_t(w);
     }
 }
 
@@ -596,6 +597,7 @@ void NetGw::_udpService(UdpFlow& f) {
     for (int i = 0; i < 4; i++) {
         int r = _up.recvData(f.sock, buf, sizeof(buf));
         if (r <= 0) break;
+        udpBytesDown += uint32_t(r);
         // 应答：源为"手表请求的目标"（网关代答时为 10.1.10.1）
         uint32_t srcBe = f.dnsViaGateway ? NETGW_LOCAL_IP_BE : f.dstIp;
         _sendUdpPacket(srcBe, NETGW_WATCH_IP_BE, f.dstPort, f.watchPort, buf, size_t(r));

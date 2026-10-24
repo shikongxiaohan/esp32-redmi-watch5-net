@@ -82,8 +82,14 @@ public:
     uint32_t tcpConnsOpened = 0;
     uint32_t tcpBytesUp = 0;    // 手表 -> 上游
     uint32_t tcpBytesDown = 0;  // 上游 -> 手表
+    uint32_t udpBytesUp = 0;    // UDP 上行（性能监控统计总吞吐用）
+    uint32_t udpBytesDown = 0;  // UDP 下行
     uint32_t udpFlows = 0;
     uint32_t dropped = 0;
+
+    // 总字节（TCP + UDP），供性能监控读取
+    uint32_t totalBytesUp() const { return tcpBytesUp + udpBytesUp; }
+    uint32_t totalBytesDown() const { return tcpBytesDown + udpBytesDown; }
 
     std::function<void(const char*)> onLog;
 

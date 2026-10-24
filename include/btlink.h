@@ -68,6 +68,9 @@ public:
         void pushRx(const uint8_t* data, size_t len);
 
         uint32_t dropped = 0; // 环形缓冲满丢弃计数
+        // 累计收发字节（性能监控统计蓝牙吞吐用，允许 32 位回绕）
+        volatile uint32_t rxBytes = 0;
+        volatile uint32_t txBytes = 0;
 
     private:
         BluetoothSerial* _serial = nullptr;

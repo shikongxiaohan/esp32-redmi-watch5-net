@@ -51,7 +51,9 @@ int BtLink::SppStream::peek() {
 
 size_t BtLink::SppStream::write(const uint8_t* buf, size_t n) {
     if (!_serial) return 0;
-    return _serial->write(buf, n);
+    size_t w = _serial->write(buf, n);
+    txBytes += uint32_t(w); // 性能监控用累计发送字节
+    return w;
 }
 
 size_t BtLink::SppStream::write(uint8_t c) {
@@ -87,6 +89,7 @@ void BtLink::SppStream::pushRx(const uint8_t* data, size_t len) {
     }
     _rxHead = head + n;
     portEXIT_CRITICAL(&_rxMux);
+    rxBytes += uint32_t(n); // 性能监控用累计接收字节
     if (n < len) dropped += uint32_t(len - n);
 }
 

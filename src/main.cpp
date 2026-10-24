@@ -30,6 +30,7 @@
 #include "led.h"
 #include "miwear.h"
 #include "netgw.h"
+#include "perfmon.h"
 #include "weather.h"
 #include "webui.h"
 #include "watchface.h"
@@ -53,6 +54,7 @@ static WatchfaceInstaller wfInstaller;
 static OtaService ota;
 static SerialPush serialPush;
 static Led led;
+static PerfMon perf;
 static std::vector<WatchfaceEntry> g_faces; // 手表端表盘列表（type=4 subtype=0 响应）
 
 // ==================== 上游 socket 实现 ====================
@@ -449,6 +451,49 @@ static void updateLed() {
     led.setState(s);
 }
 
+// ==================== 性能监控数据源 ====================
+/*
+ * Flash 占用口径（供性能页显示）：
+ *   已用 = 应用镜像（分区表中已写部分）+ 表盘缓存 + 系统区（bootloader /
+ *          分区表 / NVS / otadata / coredump 的固定预留）
+ *   总量 = 整片 Flash 容量
+ * 注意：双 OTA 结构下另一个 OTA 槽也占满 4MB，但它不算"已用数据"，
+ * 这里只统计真正写入了内容的部分，避免百分比虚高。
+ */
+static uint32_t perfFlashTotal() {
+    return uint32_t(ESP.getFlashChipSize());
+}
+
+static uint32_t perfFlashUsed() {
+    // 应用镜像：当前运行分区已写入大小
+    uint32_t appBytes = uint32_t(ESP.getSketchSize());
+
+    // 表盘缓存：分区里实际存了安装包才算占用
+    uint32_t cacheBytes = 0;
+    const FaceCacheMeta& fc = web.faceCache();
+    if (fc.present) cacheBytes = fc.size;
+
+    // 系统区：0x0 ~ 0x10000（bootloader + 分区表 + NVS + otadata）固定预留
+    const uint32_t SYSTEM_BYTES = 0x10000;
+
+    uint32_t used = appBytes + cacheBytes + SYSTEM_BYTES;
+    uint32_t total = perfFlashTotal();
+    return used > total ? total : used;
+}
+
+static void beginPerfMon() {
+    PerfMon::Sources src;
+    src.netUpBytes = []() { return gw.totalBytesUp(); };
+    src.netDownBytes = []() { return gw.totalBytesDown(); };
+    src.btUpBytes = []() { return bt.stream().txBytes; };
+    src.btDownBytes = []() { return bt.stream().rxBytes; };
+    src.flashUsedBytes = []() { return perfFlashUsed(); };
+    src.flashTotalBytes = []() { return perfFlashTotal(); };
+    src.wifiOk = []() { return WiFi.status() == WL_CONNECTED; };
+    src.authOk = []() { return wear.authenticated(); };
+    perf.begin(src);
+}
+
 // ==================== Arduino 入口 ====================
 void setup() {
     Serial.begin(115200);
@@ -494,7 +539,11 @@ void setup() {
     wx.begin(wear, cfg);
     web.begin(wear, gw, wx, cfg, bt, wfInstaller, g_faces, ota);
     web.setLed(&led);
+    web.setPerf(&perf);
     serialPush.begin(web);
+
+    // 性能监控必须在 web.begin 之后（需要访问 faceCache）
+    beginPerfMon();
 
     // WiFi（STA；无配置或超时则 AP 配网）
     WiFi.mode(WIFI_STA);
@@ -561,6 +610,7 @@ void loop() {
     wx.loop();
     manageWifi();
     manageAutoReset();
+    perf.loop();
     updateLed();
     led.loop();
 }

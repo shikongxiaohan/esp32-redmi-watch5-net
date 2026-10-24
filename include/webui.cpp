@@ -157,7 +157,7 @@ static const char CSS[] =
     ".logo{width:42px;height:42px;border-radius:12px;background:#ea580c;display:grid;place-items:center;"
     "font-size:20px;font-weight:800;flex:none}.brand{font-size:19px;font-weight:700;letter-spacing:.2px}"
     ".subtitle{font-size:12px;color:#cbd5e1;margin-top:1px}"
-    "main{max-width:960px;margin:0 auto;padding:20px 20px 36px}"
+    "main{max-width:960px;margin:0 auto;padding:20px 20px 96px}"
     "nav{display:flex;gap:6px;margin:0 0 22px;padding:5px;background:#e9edf3;border-radius:12px}"
     "nav a{flex:1;text-align:center;padding:9px 12px;border-radius:8px;color:#475569;"
     "text-decoration:none;font-size:14px;font-weight:600;white-space:nowrap}"
@@ -214,15 +214,50 @@ static const char CSS[] =
     ".footer{text-align:center;color:#7b8798;font-size:12px;margin-top:22px}"
     "@media(min-width:700px){.split{display:grid;grid-template-columns:1fr 1fr;gap:16px}.split .card{margin-bottom:16px}}"
     "@media(max-width:600px){.head{padding:17px 16px}.logo{width:38px;height:38px}.brand{font-size:17px}"
-    "main{padding:16px 12px 28px}nav{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:18px}"
+    "main{padding:16px 12px 104px}nav{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:18px}"
     "nav a{padding:9px 6px}nav a:last-child:nth-child(odd){grid-column:1/-1}.pagehead h1{font-size:22px}.card{padding:16px;border-radius:12px}.grid{grid-template-columns:1fr}"
     ".kv{grid-template-columns:minmax(110px,38%) 1fr}.kv th{width:38%}.data th,.data td{padding:11px 12px}"
     "input,select{font-size:16px}button{min-height:44px}.actions:not(.between)>button{flex:1}.cardhead{align-items:flex-start}"
     ".scanline{align-items:end}.scanline button{flex:1}.footer{margin-top:16px}}"
     "@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}"
+    // ---- 性能监控 ----
+    ".stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 0 16px}"
+    ".stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:0 2px 8px #0f172a06}"
+    ".stat .k{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.2px}"
+    ".stat .v{font-size:26px;font-weight:750;line-height:1.2;margin-top:4px;font-variant-numeric:tabular-nums}"
+    // 全局 small 是 display:block，这里必须显式改回 inline，否则 % / ℃ 会换行
+    ".stat .v small{display:inline;font-size:14px;font-weight:600;color:var(--muted);margin-left:2px}"
+    ".stat .sub{font-size:12px;color:var(--muted);margin-top:2px}"
+    ".chartbox{position:relative;height:190px;margin:2px 0 0}"
+    ".chartbox canvas{width:100%;height:100%;display:block}"
+    ".legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:#4a5768;margin-top:10px}"
+    ".legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}"
+    ".legend b{font-weight:650;font-variant-numeric:tabular-nums}"
+    // ---- 快捷悬浮占用条（模仿汽水音乐任务栏播控）----
+    ".perfdock{position:fixed;right:14px;bottom:14px;z-index:50;display:flex;align-items:center;gap:0;"
+    "background:#172033f2;color:#e8eef7;border-radius:14px;padding:8px 12px;"
+    "box-shadow:0 8px 26px #0f172a3d;backdrop-filter:blur(8px);font-size:12px;"
+    "font-variant-numeric:tabular-nums;cursor:pointer;user-select:none;transition:padding .18s}"
+    ".perfdock:hover{padding:9px 14px}"
+    ".perfdock .seg{display:flex;flex-direction:column;align-items:center;padding:0 9px;min-width:46px}"
+    ".perfdock .seg+.seg{border-left:1px solid #ffffff1f}"
+    ".perfdock .lab{font-size:10px;color:#8fa0b6;letter-spacing:.3px}"
+    ".perfdock .num{font-size:13px;font-weight:700;line-height:1.3}"
+    ".perfdock .num.warn{color:#fbbf24}.perfdock .num.bad{color:#f87171}"
+    ".perfdock .dot{width:8px;height:8px;border-radius:50%;background:#34d399;flex:none;margin-left:4px}"
+    ".perfdock .dot.warn{background:#fbbf24}.perfdock .dot.bad{background:#f87171}"
+    ".perfdock .bar{width:34px;height:3px;background:#ffffff26;border-radius:2px;margin-top:4px;overflow:hidden}"
+    ".perfdock .bar i{display:block;height:100%;background:#60a5fa;border-radius:2px;transition:width .4s}"
+    ".perfdock .bar i.warn{background:#fbbf24}.perfdock .bar i.bad{background:#f87171}"
+    ".perfdock .chev{color:#7d8ea6;margin-left:4px;font-size:11px}"
+    ".perfdock.mini .exp{display:none}"
+    ".perfdock .exp{display:flex;align-items:center}"
+    "@media(max-width:600px){.stats{grid-template-columns:1fr 1fr}.chartbox{height:160px}"
+    ".perfdock{right:8px;bottom:8px;padding:6px 8px;font-size:11px}.perfdock .seg{padding:0 6px;min-width:38px}"
+    ".perfdock .seg.hide-m{display:none}}"
     "</style>";
 
-enum class UiPage { None, Status, Config, Pair, Watchface, Firmware };
+enum class UiPage { None, Status, Perf, Config, Pair, Watchface, Firmware };
 
 static void pageBegin(String& h, const char* title, UiPage active, const char* refresh = nullptr) {
     h += "<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'>"
@@ -240,10 +275,11 @@ static void pageBegin(String& h, const char* title, UiPage active, const char* r
          "<div><div class='brand'>Watch 5 网关</div><div class='subtitle'>REDMI WATCH 5 · ESP32</div></div></div></header><main>";
     if (active != UiPage::None) {
         h += "<nav aria-label='主导航'>";
-        const char* paths[] = {"/", "/config", "/pair", "/watchface", "/firmware"};
-        const char* names[] = {"运行状态", "网关配置", "手表配对", "表盘管理", "固件升级"};
-        UiPage pages[] = {UiPage::Status, UiPage::Config, UiPage::Pair, UiPage::Watchface, UiPage::Firmware};
-        for (size_t i = 0; i < 5; i++) {
+        const char* paths[] = {"/", "/perf", "/config", "/pair", "/watchface", "/firmware"};
+        const char* names[] = {"运行状态", "性能监控", "网关配置", "手表配对", "表盘管理", "固件升级"};
+        UiPage pages[] = {UiPage::Status, UiPage::Perf, UiPage::Config, UiPage::Pair,
+                          UiPage::Watchface, UiPage::Firmware};
+        for (size_t i = 0; i < 6; i++) {
             h += "<a href='";
             h += paths[i];
             h += active == pages[i] ? "' class='active' aria-current='page'>" : "'>";
@@ -257,6 +293,7 @@ static void pageBegin(String& h, const char* title, UiPage active, const char* r
     h += "</h1><p>";
     switch (active) {
         case UiPage::Status: h += "查看手表连接、网络服务与设备运行状态"; break;
+        case UiPage::Perf: h += "实时 CPU、内存、存储、网络与蓝牙占用"; break;
         case UiPage::Config: h += "管理网络、手表、天气和配网参数"; break;
         case UiPage::Pair: h += "扫描并选择要连接的 Redmi Watch 5"; break;
         case UiPage::Watchface: h += "上传后临时暂存并直接安装到手表"; break;
@@ -266,8 +303,111 @@ static void pageBegin(String& h, const char* title, UiPage active, const char* r
     h += "</p></div>";
 }
 
-static void pageEnd(String& h) {
-    h += "<div class='footer'>ESP32 · Redmi Watch 5 网络网关</div></main></body></html>";
+/*
+ * 悬浮占用条（所有页面共用）
+ *
+ * 形态参考汽水音乐的任务栏播控：常驻右下角、一行胶囊、信息密度高但不挡内容，
+ * 点一下在「精简 / 完整」之间切换。
+ *
+ * 显示内容：
+ *   CPU / 内存 / 存储 百分比 + 三条迷你进度条
+ *   网络下行、上行（复合单位）
+ *   蓝牙收发（复合单位）
+ *   延迟（ms）、芯片温度（℃）
+ *   整体状态点（绿/黄/红）
+ * 数据源：/api/perf，2 秒轮询（与后端采样间隔一致）
+ */
+static void perfDock(String& h) {
+    h += "<div class='perfdock' id='pd' role='button' tabindex='0' "
+         "aria-label='系统占用快捷查看，点击展开或收起'>"
+         "<span class='dot' id='pd-dot'></span>"
+         "<div class='seg'><span class='lab'>CPU</span><span class='num' id='pd-cpu'>–</span>"
+         "<span class='bar'><i id='pd-cpu-b'></i></span></div>"
+         "<div class='seg'><span class='lab'>内存</span><span class='num' id='pd-mem'>–</span>"
+         "<span class='bar'><i id='pd-mem-b'></i></span></div>"
+         "<div class='seg'><span class='lab'>存储</span><span class='num' id='pd-sto'>–</span>"
+         "<span class='bar'><i id='pd-sto-b'></i></span></div>"
+         "<div class='exp'>"
+         "<div class='seg'><span class='lab'>↓ 网络</span><span class='num' id='pd-down'>–</span></div>"
+         "<div class='seg'><span class='lab'>↑ 网络</span><span class='num' id='pd-up'>–</span></div>"
+         "<div class='seg hide-m'><span class='lab'>蓝牙</span><span class='num' id='pd-bt'>–</span></div>"
+         "<div class='seg'><span class='lab'>延迟</span><span class='num' id='pd-ping'>–</span></div>"
+         "<div class='seg hide-m'><span class='lab'>温度</span><span class='num' id='pd-temp'>–</span></div>"
+         "</div>"
+         "<span class='chev' id='pd-chev'>◀</span></div>";
+
+    h += "<script>";
+    h += R"JS(
+(function(){
+  var dock=document.getElementById('pd');
+  if(!dock) return;
+  // 小屏默认收起：悬浮条在 390px 宽度下会遮住图表
+  var mini=(window.innerWidth<600);
+  if(mini){ dock.classList.add('mini'); }
+  var chev=document.getElementById('pd-chev');
+  if(chev) chev.textContent=mini?'▶':'◀';
+  function fmt(b){
+    if(b===null||b===undefined||b<0) return '–';
+    if(b<1024) return b+' B/s';
+    if(b<1048576) return (b<10240?(b/1024).toFixed(1):Math.round(b/1024))+' KB/s';
+    return (b/1048576).toFixed(2)+' MB/s';
+  }
+  function cls(v,warn,bad){
+    return v>=bad?'bad':(v>=warn?'warn':'');
+  }
+  function bar(id,v){
+    var el=document.getElementById(id);
+    if(!el) return;
+    el.style.width=Math.max(2,Math.min(100,v))+'%';
+    el.className=cls(v,70,90);
+  }
+  function num(id,txt,c){
+    var el=document.getElementById(id);
+    if(!el) return;
+    el.textContent=txt;
+    el.className='num'+(c?(' '+c):'');
+  }
+  function tick(){
+    fetch('/api/perf').then(function(r){return r.json();}).then(function(d){
+      var c=d.c||{};
+      num('pd-cpu', c.cpu<0?'–':c.cpu+'%', c.cpu<0?'':cls(c.cpu,70,90));
+      num('pd-mem',c.mem+'%',cls(c.mem,60,90));
+      num('pd-sto',c.sto+'%',cls(c.sto,85,95));
+      bar('pd-cpu-b', c.cpu<0?0:c.cpu);
+      bar('pd-mem-b',c.mem); bar('pd-sto-b',c.sto);
+      num('pd-down',fmt(c.netDown));
+      num('pd-up',fmt(c.netUp));
+      var bt=(c.btUp||0)+(c.btDown||0);
+      num('pd-bt',fmt(bt));
+      num('pd-ping',(c.ping===null||c.ping===undefined||c.ping<0)?'–':c.ping+' ms',
+          (c.ping>=300?'bad':(c.ping>=150?'warn':'')));
+      num('pd-temp',(c.temp===null||c.temp===undefined||c.temp<-100)?'–':c.temp+'℃',
+          c.temp>=75?'bad':(c.temp>=60?'warn':''));
+      var dot=document.getElementById('pd-dot');
+      if(dot) dot.className='dot'+(c.health===2?' bad':(c.health===1?' warn':''));
+    }).catch(function(){});
+  }
+  dock.addEventListener('click',function(){
+    mini=!mini;
+    dock.classList.toggle('mini',mini);
+    var ch=document.getElementById('pd-chev');
+    if(ch) ch.textContent=mini?'▶':'◀';
+  });
+  dock.addEventListener('keydown',function(e){
+    if(e.key==='Enter'||e.key===' '){ e.preventDefault(); dock.click(); }
+  });
+  tick();
+  setInterval(tick,2000);
+})();
+)JS";
+    h += "</script>";
+}
+
+static void pageEnd(String& h, bool withDock = true) {
+    h += "<div class='footer'>ESP32 · Redmi Watch 5 网络网关</div></main>";
+    // 性能页本身已有完整图表，不再叠加悬浮条（省一次 2 秒轮询）
+    if (withDock) perfDock(h);
+    h += "</body></html>";
 }
 
 static const char* stateName(xw::MwState s) {
@@ -575,6 +715,269 @@ void WebUi::_handleReboot() {
     _server->send(200, "text/html; charset=utf-8", h);
     delay(300);
     ESP.restart();
+}
+
+// ---------------- 性能监控 ----------------
+/*
+ * 页面结构：
+ *   1) 四个大数字卡片（CPU / 内存 / 存储 / 温度）
+ *   2) CPU·内存·存储 百分比折线图（三条线，0-100 固定纵轴）
+ *   3) 网络上下行折线图（自动纵轴，复合单位）
+ *   4) 蓝牙吞吐 + 网络延迟折线图
+ * 数据全部由 /api/perf 提供，前端每 2 秒拉一次，不依赖外部 CDN。
+ */
+void WebUi::_handlePerf() {
+    String h;
+    h.reserve(9000);
+    pageBegin(h, "性能监控", UiPage::Perf);
+
+    h += "<div class='stats'>"
+         "<div class='stat'><div class='k'>CPU 占用</div><div class='v' id='s-cpu'>–<small>%</small></div>"
+         "<div class='sub'>空闲钩子频率估算</div></div>"
+         "<div class='stat'><div class='k'>内存占用</div><div class='v' id='s-mem'>–<small>%</small></div>"
+         "<div class='sub' id='s-mem-sub'>–</div></div>"
+         "<div class='stat'><div class='k'>存储占用</div><div class='v' id='s-sto'>–<small>%</small></div>"
+         "<div class='sub' id='s-sto-sub'>–</div></div>"
+         "<div class='stat'><div class='k'>芯片温度</div><div class='v' id='s-temp'>–<small>℃</small></div>"
+         "<div class='sub'>ESP32 内部传感器</div></div>"
+         "</div>";
+
+    h += "<section class='card'><div class='cardhead'><h2>CPU / 内存 / 存储</h2>"
+         "<span class='meta' id='meta-a'>最近 3 分钟</span></div>"
+         "<div class='chartbox'><canvas id='c-a'></canvas></div>"
+         "<div class='legend'>"
+         "<span><i style='background:#ea580c'></i>CPU <b id='l-cpu'>–</b></span>"
+         "<span><i style='background:#2563eb'></i>内存 <b id='l-mem'>–</b></span>"
+         "<span><i style='background:#059669'></i>存储 <b id='l-sto'>–</b></span>"
+         "</div></section>";
+
+    h += "<section class='card'><div class='cardhead'><h2>网络上下行</h2>"
+         "<span class='meta'>手表经网关的 TCP + UDP 流量</span></div>"
+         "<div class='chartbox'><canvas id='c-b'></canvas></div>"
+         "<div class='legend'>"
+         "<span><i style='background:#7c3aed'></i>下行 <b id='l-down'>–</b></span>"
+         "<span><i style='background:#0891b2'></i>上行 <b id='l-up'>–</b></span>"
+         "</div></section>";
+
+    h += "<section class='card'><div class='cardhead'><h2>蓝牙吞吐</h2>"
+         "<span class='meta'>SPP 链路实际收发</span></div>"
+         "<div class='chartbox'><canvas id='c-c'></canvas></div>"
+         "<div class='legend'>"
+         "<span><i style='background:#db2777'></i>蓝牙下行 <b id='l-btd'>–</b></span>"
+         "<span><i style='background:#65a30d'></i>蓝牙上行 <b id='l-btu'>–</b></span>"
+         "</div></section>";
+
+    h += "<section class='card'><div class='cardhead'><h2>网络延迟</h2>"
+         "<span class='meta'>每 15 秒探测一次</span></div>"
+         "<div class='chartbox'><canvas id='c-d'></canvas></div>"
+         "<div class='legend'>"
+         "<span><i style='background:#475569'></i>TCP 握手往返 <b id='l-ping'>–</b></span>"
+         "</div></section>";
+
+    h += "<section class='card'><h2>数据说明</h2><table class='kv'>"
+         "<tr><th scope='row'>CPU 占用</th><td>空闲任务钩子调用频率的相对估算值，不是硬件计数；"
+         "只反映趋势与相对高低，绝对值可能有偏差</td></tr>"
+         "<tr><th scope='row'>内存占用</th><td>8 位可分配堆（不含 PSRAM）的已用比例</td></tr>"
+         "<tr><th scope='row'>存储占用</th><td>应用镜像 + 表盘缓存 + 系统区，对总 Flash 容量</td></tr>"
+         "<tr><th scope='row'>蓝牙吞吐</th><td>SPP 链路实际收发字节速率，不是射频占空比</td></tr>"
+         "<tr><th scope='row'>网络延迟</th><td>到 223.5.5.5:53 的 TCP 握手往返时间，"
+         "失败显示为 –</td></tr>"
+         "<tr><th scope='row'>芯片温度</th><td>ESP32 内部温度传感器，精度约 ±10℃，"
+         "仅表示芯片温度趋势</td></tr>"
+         "</table></section>";
+
+    // ---- 图表与轮询脚本 ----
+    h += "<script>";
+    h += R"JS(
+(function(){
+  var hist=[];
+  function fmtRate(b){
+    if(b<1024) return b+' B/s';
+    if(b<1048576) return (b<10240?(b/1024).toFixed(1):Math.round(b/1024))+' KB/s';
+    return (b/1048576).toFixed(2)+' MB/s';
+  }
+  function fmtBytes(b){
+    if(b<1024) return b+' B';
+    if(b<1048576) return (b/1024).toFixed(1)+' KB';
+    if(b<1073741824) return (b/1048576).toFixed(1)+' MB';
+    return (b/1073741824).toFixed(2)+' GB';
+  }
+  // 纵轴刻度用统一单位：以轴上限决定单位，避免"0 B/s"和"47 KB/s"混排
+  function axisRate(max){
+    var unit='B/s', div=1;
+    if(max>=1048576){ unit='MB/s'; div=1048576; }
+    else if(max>=1024){ unit='KB/s'; div=1024; }
+    return function(v){
+      var x=v/div;
+      var s=(x>=10||x===0)?Math.round(x).toString():x.toFixed(1);
+      return s+' '+unit;
+    };
+  }
+  // 画一张多线折线图
+  function draw(cv, series, opt){
+    var dpr=window.devicePixelRatio||1;
+    var w=cv.clientWidth||600, hh=cv.clientHeight||180;
+    if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(hh*dpr)){
+      cv.width=Math.round(w*dpr); cv.height=Math.round(hh*dpr);
+    }
+    var g=cv.getContext('2d');
+    g.setTransform(dpr,0,0,dpr,0,0);
+    g.clearRect(0,0,w,hh);
+    // 左侧留给纵轴标签：百分比刻度较窄，复合单位（"12.3 KB/s"）需要更宽
+    var padL=opt.padL||34,padR=8,padT=8,padB=16;
+    var iw=w-padL-padR, ih=hh-padT-padB;
+    // 网格
+    g.strokeStyle='#eef2f7'; g.lineWidth=1;
+    for(var i=0;i<=4;i++){
+      var y=padT+ih*i/4;
+      g.beginPath(); g.moveTo(padL,y); g.lineTo(w-padR,y); g.stroke();
+    }
+    // 纵轴刻度
+    g.fillStyle='#93a1b3'; g.font='10px -apple-system,sans-serif'; g.textAlign='right';
+    for(var i=0;i<=4;i++){
+      var y=padT+ih*i/4;
+      var v=opt.max*(1-i/4);
+      g.fillText(opt.fmt? opt.fmt(v): Math.round(v)+'%', padL-6, y+3);
+    }
+    if(!hist.length) return;
+    var n=hist.length;
+    var stepX=n>1? iw/(n-1):0;
+    for(var s=0;s<series.length;s++){
+      var key=series[s].key, color=series[s].color;
+      g.beginPath(); g.strokeStyle=color; g.lineWidth=2; g.lineJoin='round';
+      var started=false;
+      for(var i=0;i<n;i++){
+        var v=hist[i][key];
+        // 负值 / null 表示该项不可用：断线，不画成 0（否则会被误读成"占用为 0"）
+        if(v===null||v===undefined||v<0){ started=false; continue; }
+        var x=padL+stepX*i;
+        var y=padT+ih*(1-Math.min(v,opt.max)/opt.max);
+        if(!started){ g.moveTo(x,y); started=true; } else g.lineTo(x,y);
+      }
+      g.stroke();
+      // 末端点
+      var lv=hist[n-1][key];
+      if(lv!==null&&lv!==undefined){
+        var lx=padL+stepX*(n-1), ly=padT+ih*(1-Math.min(lv,opt.max)/opt.max);
+        g.beginPath(); g.arc(lx,ly,2.6,0,Math.PI*2); g.fillStyle=color; g.fill();
+      }
+    }
+  }
+  var ca=document.getElementById('c-a');
+  var cb=document.getElementById('c-b');
+  var cc=document.getElementById('c-c');
+  var cd=document.getElementById('c-d');
+  function bump(el,cls){
+    el.className = cls || '';
+  }
+  function setNum(id,txt){
+    var el=document.getElementById(id);
+    if(el) el.innerHTML=txt;
+  }
+  function refresh(){
+    fetch('/api/perf').then(function(r){return r.json();}).then(function(d){
+      hist=d.h||[];
+      var cur=d.c||{};
+      // 数字卡片
+      setNum('s-cpu', (cur.cpu<0?'–':cur.cpu)+'<small>%</small>');
+      setNum('s-mem', cur.mem+'<small>%</small>');
+      setNum('s-sto', cur.sto+'<small>%</small>');
+      setNum('s-temp', (cur.temp===null||cur.temp===undefined||cur.temp<-100)?'–':cur.temp)+'<small>℃</small>';
+      if(document.getElementById('s-mem-sub')) document.getElementById('s-mem-sub').textContent=
+        fmtBytes(cur.memFree)+' 可用 / '+fmtBytes(cur.memTotal);
+      if(document.getElementById('s-sto-sub')) document.getElementById('s-sto-sub').textContent=
+        fmtBytes(cur.stoUsed)+' / '+fmtBytes(cur.stoTotal);
+      // 图例
+      setNum('l-cpu', (cur.cpu<0?'–':cur.cpu+'%'));
+      setNum('l-mem', cur.mem+'%');
+      setNum('l-sto', cur.sto+'%');
+      setNum('l-down', fmtRate(cur.netDown||0));
+      setNum('l-up', fmtRate(cur.netUp||0));
+      setNum('l-btd', fmtRate(cur.btDown||0));
+      setNum('l-btu', fmtRate(cur.btUp||0));
+      setNum('l-ping', (cur.ping===null||cur.ping===undefined||cur.ping<0)?'–':cur.ping+' ms');
+      // 图表
+      draw(ca,[{key:'cpu',color:'#ea580c'},{key:'mem',color:'#2563eb'},{key:'sto',color:'#059669'}],
+           {max:100,fmt:function(v){return Math.round(v)+'%';}});
+      var netMax=1;
+      for(var i=0;i<hist.length;i++){
+        netMax=Math.max(netMax,hist[i].netDown||0,hist[i].netUp||0);
+      }
+      netMax=netMax*1.15;
+      draw(cb,[{key:'netDown',color:'#7c3aed'},{key:'netUp',color:'#0891b2'}],
+           {max:netMax,padL:58,fmt:axisRate(netMax)});
+      var cMax=1;
+      for(var i=0;i<hist.length;i++){
+        cMax=Math.max(cMax,hist[i].btDown||0,hist[i].btUp||0);
+      }
+      cMax=cMax*1.15;
+      draw(cc,[{key:'btDown',color:'#db2777'},{key:'btUp',color:'#65a30d'}],
+           {max:cMax,padL:58,fmt:axisRate(cMax)});
+      // 延迟单独一张图：单位是 ms，与蓝牙吞吐（B/s）量纲不同，不能共用一个纵轴
+      var pMax=100;
+      for(var i=0;i<hist.length;i++){
+        var pv=hist[i].ping;
+        if(pv!==null&&pv!==undefined&&pv>=0) pMax=Math.max(pMax,pv);
+      }
+      pMax=Math.ceil(pMax*1.2/50)*50; // 取到 50ms 的整数倍，刻度好读
+      draw(cd,[{key:'ping',color:'#475569'}],
+           {max:pMax,padL:48,fmt:function(v){return Math.round(v)+' ms';}});
+    }).catch(function(){});
+  }
+  refresh();
+  setInterval(refresh,2000);
+  window.addEventListener('resize',function(){ refresh(); });
+})();
+)JS";
+    h += "</script>";
+
+    pageEnd(h, false); // 本页已有完整图表，不叠加悬浮占用条
+    _server->send(200, "text/html; charset=utf-8", h);
+}
+
+void WebUi::_handlePerfApi() {
+    if (!_perf) {
+        _server->send(503, "application/json", "{\"err\":\"perf unavailable\"}");
+        return;
+    }
+    const PerfSample& c = _perf->latest();
+    const PerfHistory& hst = _perf->history();
+
+    String j;
+    j.reserve(3000 + hst.count() * 60);
+    j += "{\"c\":{";
+    // CPU 不可用（255）时输出 -1，前端显示为 –
+    j += "\"cpu\":" + String(c.cpu == PERF_CPU_UNAVAILABLE ? -1 : int(c.cpu));
+    j += ",\"mem\":" + String(c.mem);
+    j += ",\"sto\":" + String(c.sto);
+    // 供前端显示"已用/总量"（取同一份采样，避免与百分比不一致）
+    j += ",\"memFree\":" + String((unsigned)c.memFree);
+    j += ",\"memTotal\":" + String((unsigned)c.memTotal);
+    j += ",\"stoUsed\":" + String((unsigned)c.stoUsed);
+    j += ",\"stoTotal\":" + String((unsigned)c.stoTotal);
+    j += ",\"netUp\":" + String((unsigned)c.netUp);
+    j += ",\"netDown\":" + String((unsigned)c.netDown);
+    j += ",\"btUp\":" + String((unsigned)c.btUp);
+    j += ",\"btDown\":" + String((unsigned)c.btDown);
+    j += ",\"ping\":" + String((int)c.ping);
+    j += ",\"temp\":" + String((int)c.temp);
+    j += ",\"health\":" + String(c.health);
+    j += "},\"h\":[";
+    for (int i = 0; i < hst.count(); i++) {
+        const PerfSample& s = hst.at(i);
+        if (i) j += ",";
+        j += "{\"cpu\":" + String(s.cpu == PERF_CPU_UNAVAILABLE ? -1 : int(s.cpu));
+        j += ",\"mem\":" + String(s.mem);
+        j += ",\"sto\":" + String(s.sto);
+        j += ",\"netUp\":" + String((unsigned)s.netUp);
+        j += ",\"netDown\":" + String((unsigned)s.netDown);
+        j += ",\"btUp\":" + String((unsigned)s.btUp);
+        j += ",\"btDown\":" + String((unsigned)s.btDown);
+        j += ",\"ping\":" + String((int)s.ping);
+        j += "}";
+    }
+    j += "]}";
+    _server->send(200, "application/json", j);
 }
 
 void WebUi::_handleApi() {
@@ -922,7 +1325,9 @@ void WebUi::_handleWatchface() {
     }
     h += "</section><div class='notice'>安装流程：校验文件（MD5 / CRC32）→ 手表确认 → 分块上传 → 激活。"
          "表盘只临时暂存，不占用长期存储空间。</div>";
-    pageEnd(h);
+    // 安装进行中：页面每 2 秒整页刷新，且要把 CPU 让给分块上传，
+    // 此时不叠加悬浮占用条（避免额外的 2 秒轮询与整页刷新互相干扰）
+    pageEnd(h, !busy);
     _server->send(200, "text/html; charset=utf-8", h);
 
     if (auth && _faces && _faces->empty() && !busy) _requestWatchfaceList();
@@ -1473,6 +1878,7 @@ void WebUi::begin(MiWear& wear, NetGw& gw, WeatherService& wx, AppConfig& cfg, B
     _server->on("/config", [this]() { _handleConfig(); });
     _server->on("/pair", [this]() { _handlePair(); });
     _server->on("/watchface", [this]() { _handleWatchface(); });
+    _server->on("/perf", [this]() { _handlePerf(); });
     _server->on("/firmware", [this]() { _handleFirmware(); });
     _server->on("/save", HTTP_POST, [this]() { _handleSave(); });
     _server->on("/weather", HTTP_POST, [this]() { _handleWeather(); });
@@ -1510,6 +1916,7 @@ void WebUi::begin(MiWear& wear, NetGw& gw, WeatherService& wx, AppConfig& cfg, B
     _server->on("/api/status", [this]() { _handleApi(); });
     _server->on("/api/watchface", [this]() { _handleWfApi(); });
     _server->on("/api/firmware", [this]() { _handleFwApi(); });
+    _server->on("/api/perf", [this]() { _handlePerfApi(); });
     _server->on("/led/test", HTTP_POST, [this]() { _handleLedTest(); });
     _server->onNotFound([this]() { _handleNotFound(); });
     _server->begin();

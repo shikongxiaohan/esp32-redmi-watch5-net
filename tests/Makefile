@@ -17,10 +17,11 @@ WATCHFACE_SRC := ../include/watchface.cpp
 SERIALPUSH_SRC := ../include/serialpush_proto.cpp
 FACECACHE_SRC := ../include/facecache.cpp
 LEDLOGIC_SRC := ../include/ledlogic.cpp
+PERFDATA_SRC := ../include/perfdata.cpp
 
 .PHONY: all clean run
 
-all: test_protocol test_netgw test_btlink test_miwear test_watchface test_ota test_serialpush test_led run
+all: test_protocol test_netgw test_btlink test_miwear test_watchface test_ota test_serialpush test_led test_perf run
 
 test_protocol: test_protocol.cpp $(PROTO_SRC) $(MIWEAR_SRC)
 	$(CXX) $(CXXFLAGS) $(INC) -o $@ $^
@@ -46,7 +47,10 @@ test_serialpush: test_serialpush.cpp $(SERIALPUSH_SRC) $(FACECACHE_SRC)
 test_led: test_led.cpp $(LEDLOGIC_SRC) $(SERIALPUSH_SRC) $(FACECACHE_SRC) $(PROTO_SRC)
 	$(CXX) $(CXXFLAGS) $(INC) -o $@ $^
 
-run: test_protocol test_netgw test_btlink test_miwear test_watchface test_ota test_serialpush test_led
+test_perf: test_perf.cpp $(PERFDATA_SRC)
+	$(CXX) $(CXXFLAGS) $(INC) -o $@ $^
+
+run: test_protocol test_netgw test_btlink test_miwear test_watchface test_ota test_serialpush test_led test_perf
 	@echo "===== test_protocol ====="
 	@./test_protocol
 	@echo "===== test_netgw ====="
@@ -63,7 +67,9 @@ run: test_protocol test_netgw test_btlink test_miwear test_watchface test_ota te
 	@./test_serialpush
 	@echo "===== test_led ====="
 	@./test_led
+	@echo "===== test_perf ====="
+	@./test_perf
 	@echo "===== ALL TESTS PASSED ====="
 
 clean:
-	rm -f test_protocol test_netgw test_btlink test_miwear test_watchface test_ota test_serialpush test_led
+	rm -f test_protocol test_netgw test_btlink test_miwear test_watchface test_ota test_serialpush test_led test_perf

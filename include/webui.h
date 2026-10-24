@@ -34,6 +34,7 @@
 #include "facecache.h"
 #include "netgw.h"
 #include "ota.h"
+#include "perfmon.h"
 #include "staging.h"
 #include "weather.h"
 #include "watchface.h"
@@ -56,6 +57,8 @@ public:
                WatchfaceInstaller& wf, const std::vector<WatchfaceEntry>& faces, OtaService& ota);
     // 注入 LED 控制器（供网页"测试灯"按钮使用；可为空）
     void setLed(Led* led) { _led = led; }
+    // 注入性能监控（供性能页与悬浮占用条使用；可为空）
+    void setPerf(PerfMon* perf) { _perf = perf; }
     void loop();
 
     // AP 配网模式相关
@@ -89,6 +92,7 @@ private:
     const std::vector<WatchfaceEntry>* _faces = nullptr;
     OtaService* _ota = nullptr;
     Led* _led = nullptr;
+    PerfMon* _perf = nullptr;
 
     bool _apActive = false;
     bool _started = false;
@@ -119,6 +123,8 @@ private:
     uint32_t _otaLastDataMs = 0;
 
     void _handleRoot();
+    void _handlePerf();       // 性能监控页
+    void _handlePerfApi();    // JSON：当前读数 + 历史曲线
     void _handleConfig();
     void _handleSave();
     void _handleWeather();
