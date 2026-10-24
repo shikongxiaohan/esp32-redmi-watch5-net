@@ -31,6 +31,7 @@
 #pragma once
 
 #include "appconfig.h"
+#include "facecache.h"
 #include "netgw.h"
 #include "ota.h"
 #include "staging.h"
@@ -41,6 +42,8 @@
 #include <Preferences.h>
 #include <WebServer.h>
 #include <DNSServer.h>
+
+#include <string>
 
 namespace xw {
 
@@ -60,6 +63,18 @@ public:
     // 配置加载/保存（NVS）
     static void loadConfig(AppConfig& cfg);
     static void saveConfig(const AppConfig& cfg);
+
+    // ---- 表盘安装包推送通道（供串口推送复用同一套暂存/安装逻辑）----
+    // 串口推包与网页上传走完全相同的暂存区与安装器，二者互斥（busy 时拒绝）
+    bool wfPushBegin(uint32_t size, const std::string& name, std::string& err);
+    size_t wfPushData(const uint8_t* data, size_t len);
+    bool wfPushEnd(std::string& err);
+    void wfPushAbort();
+    // 安装结束回调（main 转发 installer.onDone）：成功即删缓存，失败保留
+    void watchfaceInstallDone(bool ok, const std::string& err);
+    // 缓存状态（供网页与串口查询）
+    const FaceCacheMeta& faceCache() const { return _fcMeta; }
+    bool faceCacheBusy() const;
 
 private:
     MiWear* _wear = nullptr;
@@ -85,6 +100,12 @@ private:
     uint32_t _wfUploadPump = 0;   // 距上次驱动蓝牙栈的 chunk 数
     uint32_t _wfLastDataMs = 0;
     uint32_t _wfLastListReqMs = 0;
+    std::string _wfUploadName;    // 当前上传的文件名（用于缓存元数据）
+    bool _wfPushMode = false;     // 当前上传来自串口推送通道
+
+    // 表盘安装包缓存（安装成功即删；失败保留；48h 未用自动清理）
+    FaceCacheMeta _fcMeta;
+    uint32_t _fcLastCheckMs = 0;
 
     // OTA 上传状态
     bool _otaUploadBad = false;
@@ -111,9 +132,19 @@ private:
     void _handleWfUninstall();
     void _handleWfRefresh();
     void _handleWfApi();
+    void _handleWfRetry();      // 用缓存包重新安装
+    void _handleWfCacheDelete();// 手动删除缓存包
     void _pumpDuringUpload(); // 大文件上传期间保持蓝牙/网络栈运转
     void _requestWatchfaceList();
     const char* _wfStateName(WfState s) const;
+
+    // 缓存管理
+    void _fcLoad();
+    void _fcSave();
+    void _fcSet(const std::string& name, uint32_t size);
+    void _fcClear();
+    bool _fcErase();
+    void _fcCheckExpiry();
 
     // OTA 固件升级
     void _handleFirmware();

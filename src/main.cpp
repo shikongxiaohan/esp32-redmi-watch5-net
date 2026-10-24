@@ -33,6 +33,7 @@
 #include "webui.h"
 #include "watchface.h"
 #include "ota.h"
+#include "serialpush.h"
 
 #include <cstdio>
 #include <cstring>
@@ -49,6 +50,7 @@ static WeatherService wx;
 static WebUi web;
 static WatchfaceInstaller wfInstaller;
 static OtaService ota;
+static SerialPush serialPush;
 static std::vector<WatchfaceEntry> g_faces; // 手表端表盘列表（type=4 subtype=0 响应）
 
 // ==================== 上游 socket 实现 ====================
@@ -430,10 +432,13 @@ void setup() {
         } else {
             Serial.printf("[xw][wf] install failed: %s\n", err.c_str());
         }
+        // 安装成功 → 删除板子上的安装包缓存；失败 → 保留以便重装
+        web.watchfaceInstallDone(ok, err);
     };
 
     wx.begin(wear, cfg);
     web.begin(wear, gw, wx, cfg, bt, wfInstaller, g_faces, ota);
+    serialPush.begin(web);
 
     // WiFi（STA；无配置或超时则 AP 配网）
     WiFi.mode(WIFI_STA);
@@ -467,6 +472,7 @@ void setup() {
 void loop() {
     bt.loop();
     web.loop();
+    serialPush.loop();
 
     // 蓝牙数据 -> MiWear（拆帧、认证、网络包分发）
     {

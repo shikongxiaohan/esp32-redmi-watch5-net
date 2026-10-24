@@ -10,6 +10,7 @@
 #include <WebServer.h>
 #include <DNSServer.h>
 #include <WiFi.h>
+#include <time.h>
 
 #include <cstdio>
 #include <cstring>
@@ -75,6 +76,64 @@ void WebUi::saveConfig(const AppConfig& cfg) {
     p.putBool("aren", cfg.autoResetEn);
     p.putUShort("armin", cfg.autoResetMin);
     p.end();
+}
+
+// ---------------- 表盘安装包缓存（NVS） ----------------
+// 键：fc_present / fc_name / fc_size / fc_at
+void WebUi::_fcLoad() {
+    Preferences p;
+    p.begin("xwnet", true);
+    _fcMeta.present = p.getBool("fc_present", false);
+    _fcMeta.name = p.getString("fc_name", "").c_str();
+    _fcMeta.size = (uint32_t)p.getULong("fc_size", 0);
+    _fcMeta.uploadedAt = (uint32_t)p.getULong("fc_at", 0);
+    p.end();
+}
+
+void WebUi::_fcSave() {
+    Preferences p;
+    p.begin("xwnet", false);
+    p.putBool("fc_present", _fcMeta.present);
+    p.putString("fc_name", _fcMeta.name.c_str());
+    p.putULong("fc_size", (unsigned long)_fcMeta.size);
+    p.putULong("fc_at", (unsigned long)_fcMeta.uploadedAt);
+    p.end();
+}
+
+void WebUi::_fcSet(const std::string& name, uint32_t size) {
+    _fcMeta.present = true;
+    _fcMeta.name = name;
+    _fcMeta.size = size;
+    _fcMeta.uploadedAt = (uint32_t)time(nullptr);
+    _fcSave();
+}
+
+void WebUi::_fcClear() {
+    _fcMeta.clear();
+    _fcSave();
+}
+
+// 擦除暂存区中的缓存包
+bool WebUi::_fcErase() {
+    if (_wfStage.busy()) return false;
+    std::string err;
+    if (!_wfStage.eraseAll(err)) return false;
+    _fcClear();
+    return true;
+}
+
+// 缓存包超过 TTL 未使用 → 自动删除
+void WebUi::_fcCheckExpiry() {
+    if (!_fcMeta.present) return;
+    uint32_t now = (uint32_t)time(nullptr);
+    if (!faceCacheExpired(_fcMeta, now, FACE_CACHE_TTL_SEC)) return;
+    if (_wfStage.busy() || (_wf && _wf->busy())) return;  // 安装中不动
+    Serial.println("[xw] face cache expired (48h) -> erase");
+    _fcErase();
+}
+
+bool WebUi::faceCacheBusy() const {
+    return _wfStage.busy() || (_wf && _wf->busy());
 }
 
 // ---------------- 页面 ----------------
@@ -726,18 +785,50 @@ void WebUi::_handleWatchface() {
          "<form method='post' action='/watchface/upload' enctype='multipart/form-data'>"
          "<div class='field'><label for='fw'>选择表盘文件</label>"
          "<input id='fw' type='file' name='fw' accept='.bin' required aria-describedby='wf-upload-help'>"
-         "<small id='wf-upload-help' class='help'>上传后直接安装到手表，不在设备内保留；"
-         "支持米坛社区等渠道的 .bin 文件，单个文件约 1.9MB 以内。</small></div>"
+         "<small id='wf-upload-help' class='help'>上传后直接安装到手表；支持米坛社区等渠道的 .bin 文件。"
+         "也可用 USB 数据线把安装包推到板子上（串口协议，见 README）。</small></div>"
          "<button type='submit'" + String((auth && !busy && !_otaBusy() && !pending) ? "" : " disabled") +
          ">上传并安装到手表</button></form></section>";
 
-    const esp_partition_t* stage = _ota ? _ota->inactivePartition() : nullptr;
+    // 缓存包卡片：安装成功自动删除；失败保留可重装；48 小时未用自动清理
+    h += "<section class='card'><div class='cardhead'><h2>安装包缓存</h2><span class='meta'>";
+    if (_fcMeta.present) {
+        h += String(_fcMeta.size / 1024) + " KB</span></div>";
+        h += "<p class='help flush'>已缓存：<strong>" + htmlEsc(_fcMeta.name.c_str()) + "</strong>（" +
+             String(_fcMeta.size) + " 字节）<br>保留剩余：<strong>" +
+             faceCacheRemainingText(faceCacheRemaining(_fcMeta, (uint32_t)time(nullptr),
+                                                        FACE_CACHE_TTL_SEC)).c_str() +
+             "</strong>（超过 48 小时未使用会自动删除）</p>";
+        h += "<div class='actions'>";
+        h += "<form method='post' action='/watchface/retry'>"
+             "<button type='submit'" + String((auth && !busy && !_otaBusy() && !pending) ? "" : " disabled") +
+             ">重新安装此包</button></form>";
+        h += "<form method='post' action='/watchface/cache/delete' "
+             "onsubmit='return confirm(\"删除缓存的安装包？\")'>"
+             "<input type='hidden' name='id' value='1'>"
+             "<button type='submit' class='danger'" + String((auth && !busy) ? "" : " disabled") +
+             ">删除缓存</button></form>";
+        h += "</div>";
+    } else {
+        h += "无</span></div><p class='help flush'>当前没有缓存的安装包。安装成功后缓存会自动清理；"
+             "若安装失败则保留在此，可重新安装或手动删除。</p>";
+    }
+    h += "</section>";
+
+    const esp_partition_t* stage = _wfStage.partition();
     h += "<section class='card'><div class='cardhead'><h2>临时安装区</h2><span class='meta'>";
     if (stage) h += String(stage->size / 1024) + " KB 可用";
     else h += "不可用";
-    h += "</span></div><p class='help flush'>表盘先写入非活动 OTA 分区，安装完成后不保留文件。"
-         "该区域同时存放上一版本固件的回滚镜像：<strong>安装表盘会覆盖它，"
-         "此后再升级固件将无法回滚到旧版本</strong>，直到下一次固件升级成功。</p></section>";
+    h += "</span></div><p class='help flush'>表盘先写入临时安装区。";
+    if (_wfStage.dedicated()) {
+        h += "该区是<strong>独立表盘分区</strong>，与固件 OTA 槽互不影响，"
+             "安装表盘不会破坏固件回滚镜像。";
+    } else {
+        h += "当前为 4MB 布局，临时区借用非活动 OTA 分区："
+             "<strong>安装表盘会覆盖固件回滚镜像</strong>，直到下一次固件升级成功。"
+             "升级到 16MB 板子后将使用独立表盘分区。";
+    }
+    h += "</p></section>";
 
     h += "<section class='card'><div class='cardhead'><div><h2>手表端表盘</h2></div>"
          "<form method='post' action='/watchface/refresh'><button type='submit' class='secondary'" +
@@ -781,6 +872,7 @@ void WebUi::_handleWfUploadChunk() {
         _wfUploadBytes = 0;
         _wfUploadPump = 0;
         _wfLastDataMs = millis();
+        _wfPushMode = false;
         String fn = up.filename;
         fn.toLowerCase();
         if (!fn.endsWith(".bin")) {
@@ -797,6 +889,7 @@ void WebUi::_handleWfUploadChunk() {
             _wfUploadBad = true;
             return;
         }
+        _wfUploadName = up.filename.c_str();
         return;
     }
 
@@ -839,6 +932,9 @@ void WebUi::_handleWfUploadChunk() {
             if (!_wf->start(_wfSrc)) {
                 _wfUploadBad = true;
                 _wfStage.abort();
+            } else {
+                // 记录缓存元数据：安装成功后自动删除，失败则保留
+                _fcSet(_wfUploadName.empty() ? std::string("watchface.bin") : _wfUploadName, bytes);
             }
         }
         return;
@@ -863,6 +959,110 @@ void WebUi::_handleWfUploadDone() {
     }
     _server->sendHeader("Location", "/watchface", true);
     _server->send(302, "text/plain", "");
+}
+
+// ==================== 串口推送通道（与网页上传共用暂存区/安装器） ====================
+
+bool WebUi::wfPushBegin(uint32_t size, const std::string& name, std::string& err) {
+    err.clear();
+    if (size == 0) {
+        err = "包大小为 0";
+        return false;
+    }
+    if (_wfStage.busy() || (_wf && _wf->busy())) {
+        err = "设备忙（正在安装或上传）";
+        return false;
+    }
+    if (_otaBusy() || (_ota && _ota->pendingVerify())) {
+        err = "固件升级进行中";
+        return false;
+    }
+    if (!_wear || !_wear->authenticated()) {
+        err = "手表未连接或未认证";
+        return false;
+    }
+    std::string e2;
+    if (!_wfStage.begin(0, e2)) {
+        err = e2;
+        return false;
+    }
+    if (size > _wfStage.capacity()) {
+        _wfStage.abort();
+        err = "安装包超过暂存区容量";
+        return false;
+    }
+    _wfUploadName = name;
+    _wfUploadBytes = 0;
+    _wfUploadPump = 0;
+    _wfLastDataMs = millis();
+    _wfPushMode = true;
+    return true;
+}
+
+size_t WebUi::wfPushData(const uint8_t* data, size_t len) {
+    if (!_wfPushMode) return 0;
+    if (!data || !len) return 0;
+    _wfLastDataMs = millis();
+    size_t n = _wfStage.write(data, len);
+    if (n != len) {
+        _wfStage.abort();
+        _wfPushMode = false;
+        return 0;
+    }
+    _wfUploadBytes += uint32_t(len);
+    if (++_wfUploadPump >= 8) {
+        _wfUploadPump = 0;
+        _pumpDuringUpload();
+    }
+    return len;
+}
+
+bool WebUi::wfPushEnd(std::string& err) {
+    err.clear();
+    if (!_wfPushMode) {
+        err = "没有进行中的推送";
+        return false;
+    }
+    uint32_t bytes = 0;
+    if (!_wfStage.finish(bytes)) {
+        err = _wfStage.error();
+        _wfStage.abort();
+        _wfPushMode = false;
+        return false;
+    }
+    _wfPushMode = false;
+    // 表盘文件头必须是 5A A5
+    if (bytes < 2) {
+        err = "安装包过短";
+        _wfStage.abort();
+        return false;
+    }
+    _wfSrc.open(_wfStage.partition(), 0, bytes);
+    if (_wf) {
+        _wf->setMaxBytes(_wfStage.capacity());
+        if (!_wf->start(_wfSrc)) {
+            err = "安装器忙";
+            _wfStage.abort();
+            return false;
+        }
+        _fcSet(_wfUploadName.empty() ? std::string("watchface.bin") : _wfUploadName, bytes);
+    }
+    return true;
+}
+
+void WebUi::wfPushAbort() {
+    _wfPushMode = false;
+    _wfStage.abort();
+}
+
+// 安装结束：成功 → 删除缓存包；失败 → 保留（可在网页重装或手动删除）
+void WebUi::watchfaceInstallDone(bool ok, const std::string& err) {
+    if (ok) {
+        Serial.println("[xw] face cache cleared (install ok)");
+        _fcErase();
+    } else {
+        Serial.printf("[xw] face cache kept (install failed: %s)\n", err.c_str());
+    }
 }
 
 void WebUi::_handleWfSet() {
@@ -898,6 +1098,47 @@ void WebUi::_handleWfRefresh() {
     _server->send(302, "text/plain", "");
 }
 
+// 用缓存的安装包重新安装
+void WebUi::_handleWfRetry() {
+    if (!_fcMeta.present) {
+        _server->sendHeader("Location", "/watchface", true);
+        _server->send(302, "text/plain", "");
+        return;
+    }
+    if (_wfStage.busy() || (_wf && _wf->busy()) || _otaBusy()) {
+        _server->send(409, "text/plain; charset=utf-8", "设备忙，请稍后重试");
+        return;
+    }
+    if (!_wear || !_wear->authenticated()) {
+        _server->send(409, "text/plain; charset=utf-8", "手表未连接或未认证");
+        return;
+    }
+    if (!_wfStage.openCached(_fcMeta.size)) {
+        _server->send(409, "text/plain; charset=utf-8", "缓存包不可用");
+        return;
+    }
+    _wfSrc.open(_wfStage.partition(), 0, _fcMeta.size);
+    if (_wf) {
+        _wf->setMaxBytes(_wfStage.capacity());
+        if (!_wf->start(_wfSrc)) {
+            _server->send(409, "text/plain; charset=utf-8", "安装器忙");
+        }
+    }
+    _server->sendHeader("Location", "/watchface", true);
+    _server->send(302, "text/plain", "");
+}
+
+// 手动删除缓存的安装包
+void WebUi::_handleWfCacheDelete() {
+    if (_wfStage.busy() || (_wf && _wf->busy())) {
+        _server->send(409, "text/plain; charset=utf-8", "设备忙，请稍后再删除");
+        return;
+    }
+    _fcErase();
+    _server->sendHeader("Location", "/watchface", true);
+    _server->send(302, "text/plain", "");
+}
+
 void WebUi::_handleWfApi() {
     String j = "{";
     if (_wf) {
@@ -911,6 +1152,13 @@ void WebUi::_handleWfApi() {
     const esp_partition_t* stage = _ota ? _ota->inactivePartition() : nullptr;
     j += ",\"stagingUsed\":" + String((unsigned long)_wfStage.bytes());
     j += ",\"stagingCap\":" + String((unsigned long)(stage ? stage->size : 0));
+    // 缓存包信息
+    j += ",\"cachePresent\":" + String(_fcMeta.present ? 1 : 0);
+    j += ",\"cacheName\":\"" + jsonEsc(_fcMeta.name.c_str()) + "\"";
+    j += ",\"cacheSize\":" + String((unsigned long)_fcMeta.size);
+    j += ",\"cacheRemain\":" + String((unsigned long)faceCacheRemaining(
+        _fcMeta, (uint32_t)time(nullptr), FACE_CACHE_TTL_SEC));
+    j += ",\"cacheDedicated\":" + String(_wfStage.dedicated() ? 1 : 0);
 
     j += ",\"faces\":[";
     if (_faces) {
@@ -1112,6 +1360,7 @@ void WebUi::begin(MiWear& wear, NetGw& gw, WeatherService& wx, AppConfig& cfg, B
     if (_started) return;
     _started = true;
     _ota->begin();
+    _fcLoad();
 
     _server = new WebServer(80);
     _server->on("/", [this]() { _handleRoot(); });
@@ -1131,6 +1380,8 @@ void WebUi::begin(MiWear& wear, NetGw& gw, WeatherService& wx, AppConfig& cfg, B
     _server->on("/watchface/set", HTTP_POST, [this]() { _handleWfSet(); });
     _server->on("/watchface/uninstall", HTTP_POST, [this]() { _handleWfUninstall(); });
     _server->on("/watchface/refresh", HTTP_POST, [this]() { _handleWfRefresh(); });
+    _server->on("/watchface/retry", HTTP_POST, [this]() { _handleWfRetry(); });
+    _server->on("/watchface/cache/delete", HTTP_POST, [this]() { _handleWfCacheDelete(); });
     _server->on("/update", HTTP_POST,
                 [this]() { _handleFwUploadDone(); },
                 [this]() { _handleFwUploadChunk(); });
@@ -1195,6 +1446,11 @@ void WebUi::loop() {
     if (_ota && _ota->active() && now - _otaLastDataMs > 30000) {
         _ota->abort();
         _otaUploadBad = true;
+    }
+    // 缓存包 TTL 清理（每 5 分钟检查一次）
+    if (now - _fcLastCheckMs > 300000) {
+        _fcLastCheckMs = now;
+        _fcCheckExpiry();
     }
     // 健康检查只认「已接入用户 WiFi」；仅当设备本来就没有 WiFi 配置（纯 AP 使用）时，
     // AP 模式才算网络就绪，否则新固件连不上 WiFi 会被误判为健康而不回滚。

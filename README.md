@@ -20,7 +20,8 @@ DHCP 获取 IP、DNS 解析、TCP/UDP 联网，并额外获得**天气推送**�
 | 协议认证 | MiWear SPP V2 完整握手（PhoneNonce/WatchNonce/AuthStep3，AES-128-CTR 加密通道） |
 | 天气推送 | Open-Meteo 免费接口（无需 Key），支持手表主动请求 + 周期刷新 |
 | 网络对时 | NTP 校准后推送 `System.Clock`，手表显示准确时间与时区 |
-| 自定义表盘 | 上传 .bin 表盘文件（米坛社区等来源）→ 临时写入非活动 OTA 区 → 校验 MD5/CRC32 → 蓝牙分块安装 → 激活/卸载；不在设备内长期保存 |
+| 自定义表盘 | 上传 .bin 表盘文件（米坛社区等来源）→ 写入独立表盘分区 → 校验 MD5/CRC32 → 蓝牙分块安装 → 激活/卸载；**安装成功即自动删除缓存**，失败保留可重装，48 小时未用自动清理 |
+| 表盘串口推送 | 用 USB 数据线把 .bin 直接推到板子上（`XWFP` 行协议），板子自行完成安装，无需 PC 端安装软件 |
 | 固件 OTA | Web 上传 `firmware.bin`，A/B 双分区切换、启动确认、自动与手动回滚 |
 | Web 管理 | 状态页 / 配置页 / 蓝牙配对页 / 表盘管理页 / 固件升级页，自动保存到 NVS |
 | 配网 | 无 WiFi 或连接失败时自动开 AP `RedmiWatch5Net-XXXX`（192.168.4.1） |
@@ -29,7 +30,9 @@ DHCP 获取 IP、DNS 解析、TCP/UDP 联网，并额外获得**天气推送**�
 ## 硬件与软件要求
 
 - **开发板**：任何带经典蓝牙 + WiFi 的 ESP32（ESP32-WROOM-32 / WROVER / DevKitC 等）
-  - 需要 **4MB Flash**；本工程使用双 OTA 分区，低于 4MB 无法同时保留升级能力
+  - 本版固件按 **16MB Flash** 构建（2×4MB OTA 槽 + 4MB 独立表盘分区）；
+    8MB 板子需把 `platformio.ini` 的 `board_build.flash_size` 改为 `8MB` 并使用
+    `partitions-8mb.csv`；4MB 板子无法同时容纳双 OTA 与独立表盘区
   - 注意：ESP32-S2/S3/C3 没有经典蓝牙，**不适用**；必须用原版 ESP32
 - **手表**：红米 Watch 5 蓝牙版（非 eSIM 版）
 - **工具链**：PlatformIO（VS Code 插件或 `pio` CLI），或 ESP-IDF + Arduino 组件
@@ -42,13 +45,13 @@ DHCP 获取 IP、DNS 解析、TCP/UDP 联网，并额外获得**天气推送**�
 
 | 文件 | 用途 |
 | --- | --- |
-| `firmware/watch5-net-v1.1.2-full-4mb.bin` | USB 整片烧录，**首次必须用这个** |
-| `firmware/watch5-net-v1.1.2-ota.bin` | Web「固件升级」页上传，后续免插线升级 |
+| `firmware/watch5-net-v1.2.0-full-16mb.bin` | USB 整片烧录，**首次必须用这个**（16MB 板） |
+| `firmware/watch5-net-v1.2.0-ota.bin` | Web「固件升级」页上传，后续免插线升级 |
 
 ```bash
 # USB 整片烧录（首次 / 救砖）
 esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 921600 \
-  write_flash -z 0x0 firmware/watch5-net-v1.1.2-full-4mb.bin
+  write_flash -z 0x0 firmware/watch5-net-v1.2.0-full-16mb.bin
 ```
 
 文件名规则：`watch5-net-<版本>-<用途>.bin`，详细说明与校验值见
@@ -63,14 +66,14 @@ pio run -t upload          # 编译并烧录
 pio device monitor         # 查看日志（115200）
 ```
 
-编译产物：`.pio/build/esp32dev/firmware.bin`（约 1.83MB），等价发布的 `-ota.bin`；
-后续可在 Web「固件升级」页直接上传，不需要 USB。生成 4MB 合并镜像的命令见
+编译产物：`.pio/build/esp32dev/firmware.bin`（约 1.85MB），等价发布的 `-ota.bin`；
+后续可在 Web「固件升级」页直接上传，不需要 USB。生成整片合并镜像的命令见
 [`firmware/使用说明.md`](firmware/使用说明.md)。
 
-> 本版改用 4MB 双 OTA 分区：两个 1.9375MB 应用槽 + 64KB coredump，不再使用
-> LittleFS。分区表变化后必须 `pio run -t erase`，否则 NVS/旧文件系统残留会导致
-> 配置异常或启动分区选择错误。合并镜像 `-full-4mb.bin` 只能用于 USB
-> 整片烧录，不能上传到 OTA 页面。
+> 本版为 **16MB 双 OTA + 独立表盘分区**：两个 4MB 应用槽 + 4MB 表盘区 + 64KB coredump，
+> 不再使用 LittleFS。分区表变化后必须 `pio run -t erase`，否则 NVS 残留会导致
+> 配置异常或启动分区选择错误。合并镜像 `-full-16mb.bin` 只能用于 USB
+> 整片烧录，不能上传到 OTA 页面；8MB 板需另行生成对应容量的镜像。
 
 ### 2. 配网
 
@@ -111,16 +114,32 @@ SPP 连接后还需 MiWear 协议层的认证，密钥从小米运动健康 App 
 
 ### 5. 安装自定义表盘
 
+**方式 A：网页上传（最常用）**
+
 1. 打开 Web 页 →「表盘」
 2. 选择从米坛社区（BandBBS）等渠道下载的 `.bin` 表盘文件 →「上传并安装到手表」
 3. 页面显示进度（校验 → 等待手表确认 → 分块上传 → 激活）
 4. 安装完成后「手表端表盘」会刷新，新表盘标记为「使用中」；可随时点「启用」切换或「卸载」
 
-> 要求：手表已完成认证；单个文件约 1.9MB 以内。表盘只写入非活动 OTA 分区的
-> 临时暂存区，安装后不在设备内保留，也不提供本地表盘列表。下一次固件升级或
-> 表盘上传会覆盖该临时区。
-> **注意**：该临时区与「上一版本固件的回滚镜像」是同一块空间，安装表盘会清除
-> 回滚镜像——此后若新固件启动失败将无法自动/手动回滚，直到下一次固件升级成功。
+**方式 B：USB 数据线推包（无需联网、无需 PC 端安装软件）**
+
+板子自带串口推包通道：把 `.bin` 通过数据线推到板子上，板子自己完成校验与安装。
+
+```bash
+pip install pyserial
+python3 tools/push_watchface.py 表盘.bin --port COM3
+```
+
+协议为行式 ASCII（命令前缀 `XWFP `，状态前缀 `XWFS `），
+与固件日志共线互不干扰，详见 `include/serialpush_proto.h`。
+
+> **表盘安装包缓存规则**
+> - 安装**成功** → 板子自动删除缓存包，不留残留
+> - 安装**失败** → 缓存保留，「表盘管理」页可「重新安装此包」或「删除缓存」
+> - 缓存包超过 **48 小时**未被使用 → 板子自动删除
+>
+> 16MB 布局下表盘写入**独立 4MB 分区**，与固件 OTA 槽互不影响，
+> 装表盘**不会**破坏固件回滚镜像。
 > 安装流程与米坛「表盘自定义工具箱」App 一致（MiWear type=4/type=22 + Mass 通道）。
 
 ### 6. 固件升级（OTA）
@@ -129,14 +148,13 @@ SPP 连接后还需 MiWear 协议层的认证，密钥从小米运动健康 App 
 NVS 配置和蓝牙绑定，烧录后需要重新配网并重新配对手表。
 
 1. 打开 Web 页 →「固件升级」
-2. 选择 `firmware/watch5-net-v1.1.2-ota.bin`（自编译则是
-   `.pio/build/esp32dev/firmware.bin`；**不要**选 `-full-4mb.bin` 合并镜像）
+2. 选择 `firmware/watch5-net-v1.2.0-ota.bin`（自编译则是
+   `.pio/build/esp32dev/firmware.bin`；**不要**选 `-full-16mb.bin` 合并镜像）
 3. 点「上传并升级」，页面会提示正在写入；保持供电和网络，设备完成后自动重启
 4. 新固件启动后，**成功连上已配置的 WiFi** 并稳定 60 秒会自动确认；若 180 秒仍
    未连上 WiFi 且另一分区有有效固件，bootloader 会自动回滚。仅处于 AP 配网模式
    不算「联网成功」（设备本来就没有 WiFi 配置的纯 AP 用法除外）
-5. 「固件升级」页可手动回滚到另一分区；表盘临时暂存会覆盖旧回滚镜像，
-   页面会在回滚不可用时隐藏按钮
+5. 「固件升级」页可手动回滚到另一分区
 
 > OTA 只接受 ESP32 应用镜像（0xE9 头 + 0x20 处应用描述符），会拒绝合并镜像、
 > 表盘文件和截断文件。升级期间会禁止表盘安装、保存配置和重启操作。
@@ -159,47 +177,54 @@ NVS 配置和蓝牙绑定，烧录后需要重新配网并重新配对手表。
 > 设备会按设定周期反复清空配置并重启，请确认场景合适再开启。
 
 
-## 大容量 Flash 分区（换 8MB / 16MB 板子时使用）
+## Flash 容量与分区表
 
-仓库内置两套备用分区表：`partitions-8mb.csv`、`partitions-16mb.csv`。
-大容量板子到手后切换步骤（以 8MB 为例，16MB 同理）：
+**本版固件默认按 16MB Flash 构建**（`partitions.csv` = 16MB 布局）。
+仓库同时提供三套分区表，按板子容量选用：
 
-1. **改 `platformio.ini`**：`board_build.flash_size = 8MB`，
-   `board_build.partitions = partitions-8mb.csv`
-2. **改名/替换分区表**：`cp partitions-8mb.csv partitions.csv`
-3. **重新整片烧录**：`pio run -t erase`（新板第一次必须全擦），
-   再烧整片镜像（merge_bin 时把 `--flash_size 4MB` 改成对应容量），
+| 板子 Flash | 使用的分区表 | 需改的配置 |
+| --- | --- | --- |
+| **16MB**（当前默认，推荐） | `partitions.csv`（= `partitions-16mb.csv`） | 无需改 |
+| 8MB | `partitions-8mb.csv` | `board_build.flash_size = 8MB` + `board_build.partitions = partitions-8mb.csv` |
+| 4MB | 不建议 | 无法同时容纳双 OTA 与独立表盘分区 |
+
+切换步骤：
+
+1. 改 `platformio.ini` 的 `board_build.flash_size` 与 `board_build.partitions`
+2. `cp partitions-8mb.csv partitions.csv`（若换到 8MB）
+3. **重新整片烧录**：`pio run -t erase`（新板第一次必须全擦，会清 WiFi 配置与蓝牙绑定），
+   再烧对应容量的整片镜像（merge_bin 时 `--flash_size` 与 `--fill-flash-size` 同步改），
    或用 Flash Download Tool 选对应容量烧整片镜像
 
 三档布局对比：
 
-| 分区 | 4MB 版（当前） | 8MB 版 | 16MB 版 |
+| 分区 | 4MB 版 | 8MB 版 | 16MB 版（当前） |
 | --- | --- | --- | --- |
-| ota_0 / ota_1 | 2 × 1,984KB | **2 × 2,560KB** | **2 × 4MB** |
-| 单个 OTA 槽剩余（固件 1.83MB） | 约 190KB ⚠️ | **约 767KB** | **约 2.2MB** |
-| 表盘暂存 | 与非活动 OTA 槽共用 | **独立 2MB** | **独立 4MB** |
+| ota_0 / ota_1 | 2 × 1,984KB | 2 × 2,560KB | **2 × 4MB** |
+| 单个 OTA 槽剩余（固件 1.85MB） | 约 190KB ⚠️ | 约 767KB | **约 2.2MB** |
+| 表盘暂存 | 与非活动 OTA 槽共用 | 独立 2MB | **独立 4MB** |
 | 未分配保留 | 0 | 896KB | 3.9MB |
-| 回滚镜像被表盘覆盖 | ⚠️ 会（有 UI 警告） | ✅ 不会 | ✅ 不会 |
+| 回滚镜像被表盘覆盖 | ⚠️ 会 | ✅ 不会 | ✅ 不会 |
 
-> 注意：换 16MB 板后首次烧录必须整片（bootloader/分区表全部重写），
-> 且旧 4MB 设备的 OTA 升级包不能直接传给 16MB 设备（分区布局不同，需按
-> 上表重新出固件）。
+> **不同容量的设备不能互相 OTA 升级**：分区布局不同，升级包必须与设备容量匹配。
 
 ## 目录结构
 
 ```
 esp32-redmi-watch5-net/
 ├── platformio.ini          # PlatformIO 工程配置
-├── partitions.csv          # 4MB 双 OTA 分区（2×1.9375MB + coredump）
-├── partitions-8mb.csv      # 8MB 板备用分区表（2×2.5MB OTA + 2MB 独立表盘区）
-├── partitions-16mb.csv     # 16MB 板备用分区表（2×4MB OTA + 4MB 独立表盘区）
+├── partitions.csv          # 16MB 双 OTA + 独立表盘分区（当前默认）
+├── partitions-8mb.csv      # 8MB 板分区表（2×2.5MB OTA + 2MB 独立表盘区）
+├── partitions-16mb.csv     # 16MB 板分区表（= partitions.csv，保留副本）
 ├── sdkconfig.defaults      # ESP-IDF 配置（经典蓝牙/SPP）
 ├── firmware/               # 已编译的可烧录固件
-│   ├── watch5-net-v1.1.2-full-4mb.bin   # USB 整片烧录（首次）
-│   ├── watch5-net-v1.1.2-ota.bin        # Web OTA 升级
+│   ├── watch5-net-v1.2.0-full-16mb.bin   # USB 整片烧录（首次）
+│   ├── watch5-net-v1.2.0-ota.bin        # Web OTA 升级
 │   ├── SHA256SUMS.txt      # 校验值
 │   └── 使用说明.md          # 命名规则 / 烧录命令 / 自行编译
 ├── .gitignore              # 忽略 .pio 构建产物与测试可执行文件
+├── tools/
+│   └── push_watchface.py   # 串口推包脚本（把表盘 .bin 推到板子上）
 ├── src/
 │   └── main.cpp            # 入口：对象接线、WiFi/NTP/时钟推送、上游 socket
 ├── include/
@@ -211,7 +236,10 @@ esp32-redmi-watch5-net/
 │   ├── iputil/dhcp/netgw   # 手表侧用户态网络栈（IP/TCP/UDP/ICMP/DHCP）
 │   ├── weather.h/.cpp      # 天气服务（Open-Meteo）
 │   ├── watchface.h/.cpp    # 表盘文件解析 + 安装状态机（Mass 通道上传）
-│   ├── staging.h/.cpp      # 非活动 OTA 分区临时暂存 + 表盘读取源
+│   ├── staging.h/.cpp      # 表盘暂存区（独立分区优先，兼容非活动 OTA 槽）
+│   ├── facecache.h/.cpp    # 安装包缓存元数据 + 48h TTL 判定
+│   ├── serialpush.h/.cpp   # 串口推包接收器（UART0 行协议）
+│   ├── serialpush_proto.h/.cpp  # 推包协议解析 + Base64（纯逻辑，可单测）
 │   ├── ota.h/.cpp          # Web OTA、镜像校验、启动确认、回滚
 │   ├── ota_image.h         # 应用镜像头纯函数校验
 │   └── webui.h/.cpp        # Web 管理界面 + 配网 AP + 表盘/固件页
@@ -222,6 +250,7 @@ esp32-redmi-watch5-net/
 │   ├── test_miwear.cpp     #   帧格式/握手/ACK（37 项，XW_HOST_TEST 编译状态机）
 │   ├── test_watchface.cpp  #   表盘解析/完整安装流程/失败路径（179 项）
 │   ├── test_ota.cpp        #   OTA 应用镜像头校验（6 项）
+│   ├── test_serialpush.cpp #   串口推包协议/Base64/缓存 TTL（121 项）
 │   └── *.h                 #   主机桩（Arduino/BluetoothSerial/FreeRTOS）
 └── docs/
     └── protocol-notes.md   # 协议与实现笔记
@@ -298,11 +327,11 @@ Flash 占用 90.1%（1.83MB / 1.9375MB OTA 槽），RAM 26.5%（约 87KB / 320KB
 - 并发 TCP 连接 6 个、UDP 流 8 个（够手表日常使用，见 `netgw.h` 常量）
 - 蓝牙与 WiFi 共用 2.4G 射频，大流量时互相有性能影响
 - 表盘预览图不在 Web 页渲染（LVGL RLE 解码未实现，仅解析 previewOffset）
-- 表盘不做长期存储：上传时占用非活动 OTA 分区作为临时区，安装后不保留文件；
-  这会覆盖上一版本固件的回滚镜像
-- 不提供 ArduinoOTA / espota 网络烧录，只支持网页 OTA 和 USB 线刷
+- 表盘安装包**不做长期存储**：安装成功即自动删除缓存；失败时保留直到重装、手动删除或 48 小时超时
+- 串口推包需 PC 端有 `pyserial`（`pip install pyserial`）；仅推包不需联网
+- 不提供 ArduinoOTA / espota 网络烧录，只支持网页 OTA、USB 线刷与串口推表盘
 - 未实现手表固件升级（OTA 通道）；Mass 通道目前只用于表盘安装
-- OTA 应用槽约 1.9375MB，当前固件已占 90%，后续功能增长空间有限
+- 本固件按 16MB Flash 构建；4MB 板无法容纳双 OTA + 独立表盘分区
 
 ## 致谢与参考
 

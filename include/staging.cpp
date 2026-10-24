@@ -7,10 +7,23 @@
 
 namespace xw {
 
+const esp_partition_t* WatchfaceStaging::pickPartition(bool& dedicated) {
+    dedicated = false;
+    // 1) 独立 "watchface" 数据分区（16MB 布局，subtype 0x40）
+    const esp_partition_t* wf = esp_partition_find_first(
+        ESP_PARTITION_TYPE_DATA, (esp_partition_subtype_t)0x40, "watchface");
+    if (wf && wf->size > 64u * 1024u) {
+        dedicated = true;
+        return wf;
+    }
+    // 2) 兼容路径：非活动 OTA 槽
+    return esp_ota_get_next_update_partition(nullptr);
+}
+
 bool WatchfaceStaging::begin(uint32_t userMax, std::string& err) {
     err.clear();
     _error.clear();
-    _part = esp_ota_get_next_update_partition(nullptr);
+    _part = pickPartition(_dedicated);
     if (!_part) {
         err = "没有可用的临时分区";
         return false;
@@ -28,14 +41,35 @@ bool WatchfaceStaging::begin(uint32_t userMax, std::string& err) {
         return false;
     }
 
-    // 先使旧应用镜像头部失效；即使随后掉电，也不会从该槽启动。
-    if (esp_partition_erase_range(_part, 0, 0x1000) != ESP_OK) {
-        err = "无法擦除临时分区";
-        return false;
-    }
+    if (eraseAll(err)) return false;
+
     _erasedEnd = 0x1000;
     _pos = 0;
     _busy = true;
+    return true;
+}
+
+bool WatchfaceStaging::eraseAll(std::string& err) {
+    err.clear();
+    if (!_part) {
+        err = "没有可用的临时分区";
+        return false;
+    }
+    if (esp_partition_erase_range(_part, 0, _part->size) != ESP_OK) {
+        err = "无法擦除临时分区";
+        return false;
+    }
+    _erasedEnd = 0;
+    _pos = 0;
+    return true;
+}
+
+bool WatchfaceStaging::openCached(uint32_t len) {
+    if (!_part || len == 0) return false;
+    if (len > _part->size) return false;
+    _limit = _part->size;
+    _pos = len;
+    _busy = false;
     return true;
 }
 
@@ -80,7 +114,7 @@ bool WatchfaceStaging::finish(uint32_t& outBytes) {
 
 void WatchfaceStaging::abort() {
     if (_part) {
-        // 擦除已写入范围，避免表盘残片长期占用（OTA 分区）flash。
+        // 擦除已写入范围，避免表盘残片长期占用 flash。
         uint32_t end = _pos ? ((_pos + 0xFFFu) & ~0xFFFu) : 0x1000u;
         if (end > _part->size) end = _part->size;
         esp_partition_erase_range(_part, 0, end);

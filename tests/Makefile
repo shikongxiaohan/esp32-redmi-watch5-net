@@ -14,10 +14,12 @@ MIWEAR_FLAGS := -DXW_HOST_TEST
 NETGW_SRC := ../include/netgw.cpp
 BTLINK_SRC := ../include/btlink.cpp
 WATCHFACE_SRC := ../include/watchface.cpp
+SERIALPUSH_SRC := ../include/serialpush_proto.cpp
+FACECACHE_SRC := ../include/facecache.cpp
 
 .PHONY: all clean run
 
-all: test_protocol test_netgw test_btlink test_miwear test_watchface test_ota run
+all: test_protocol test_netgw test_btlink test_miwear test_watchface test_ota test_serialpush run
 
 test_protocol: test_protocol.cpp $(PROTO_SRC) $(MIWEAR_SRC)
 	$(CXX) $(CXXFLAGS) $(INC) -o $@ $^
@@ -37,7 +39,10 @@ test_watchface: test_watchface.cpp $(WATCHFACE_SRC) $(PROTO_SRC)
 test_ota: test_ota.cpp
 	$(CXX) $(CXXFLAGS) $(INC) -o $@ $^
 
-run: test_protocol test_netgw test_btlink test_miwear test_watchface test_ota
+test_serialpush: test_serialpush.cpp $(SERIALPUSH_SRC) $(FACECACHE_SRC)
+	$(CXX) $(CXXFLAGS) $(INC) -o $@ $^
+
+run: test_protocol test_netgw test_btlink test_miwear test_watchface test_ota test_serialpush
 	@echo "===== test_protocol ====="
 	@./test_protocol
 	@echo "===== test_netgw ====="
@@ -50,7 +55,9 @@ run: test_protocol test_netgw test_btlink test_miwear test_watchface test_ota
 	@./test_watchface
 	@echo "===== test_ota ====="
 	@./test_ota
+	@echo "===== test_serialpush ====="
+	@./test_serialpush
 	@echo "===== ALL TESTS PASSED ====="
 
 clean:
-	rm -f test_protocol test_netgw test_btlink test_miwear test_watchface test_ota
+	rm -f test_protocol test_netgw test_btlink test_miwear test_watchface test_ota test_serialpush

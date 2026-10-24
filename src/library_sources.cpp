@@ -21,3 +21,6 @@
 #include "../include/watchface.cpp"
 #include "../include/staging.cpp"
 #include "../include/ota.cpp"
+#include "../include/facecache.cpp"
+#include "../include/serialpush_proto.cpp"
+#include "../include/serialpush.cpp"

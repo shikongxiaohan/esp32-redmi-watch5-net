@@ -1,10 +1,14 @@
 /*
  * 表盘临时暂存区
  *
- * 4MB 双 OTA 布局下没有 LittleFS；利用非活动 OTA 分区作为一次性暂存：
- *   - 先擦除首 4KB，避免残留内容被 bootloader 当作应用镜像
- *   - 按 4KB 边界惰性擦除并写入
- *   - 安装完成后不保留文件，下次 OTA 或表盘上传会覆盖
+ * 分区选择（按优先级）：
+ *   1. 名为 "watchface" 的独立数据分区（16MB 布局，subtype 0x40）
+ *   2. 非活动 OTA 分区（4MB 布局的兼容路径）
+ *
+ * 语义：
+ *   - 上传时写入暂存区；安装成功后由 WatchfaceCache 删除缓存
+ *   - 安装失败时保留缓存，可重装或手动删除
+ *   - 超过 TTL（48 小时）未使用自动删除
  */
 #pragma once
 
@@ -40,10 +44,17 @@ private:
 
 class WatchfaceStaging {
 public:
+    // 开始一次上传：清空暂存区并准备写入
     bool begin(uint32_t userMax, std::string& err);
     size_t write(const uint8_t* data, size_t len);
     bool finish(uint32_t& outBytes);
     void abort();
+
+    // 打开已缓存的文件（重装用）：len 为缓存字节数
+    bool openCached(uint32_t len);
+
+    // 擦除整个暂存区（删除缓存包）
+    bool eraseAll(std::string& err);
 
     bool busy() const { return _busy; }
     uint32_t capacity() const { return _limit; }
@@ -51,12 +62,19 @@ public:
     const esp_partition_t* partition() const { return _part; }
     const std::string& error() const { return _error; }
 
+    // 是否使用独立的 "watchface" 分区（true=删缓存不影响 OTA 回滚镜像）
+    bool dedicated() const { return _dedicated; }
+
+    // 选择目标分区（独立表盘分区优先，否则非活动 OTA 槽）
+    static const esp_partition_t* pickPartition(bool& dedicated);
+
 private:
     const esp_partition_t* _part = nullptr;
     uint32_t _limit = 0;
     uint32_t _pos = 0;
     uint32_t _erasedEnd = 0;
     bool _busy = false;
+    bool _dedicated = false;
     std::string _error;
 
     bool _eraseThrough(uint32_t end);
