@@ -33,9 +33,18 @@ struct AppConfig {
     // 默认关闭；开启后适合无人值守部署，误开会导致离线即清配置。
     bool autoResetEn = false;
     uint16_t autoResetMin = 10; // 1..1440 分钟
+    // 板载 LED 状态指示
+    // 引脚号：-1 = 禁用，0 = GPIO0，2 = GPIO2（多数 ESP32 开发板板载 LED 在 GPIO2）
+    int8_t ledPin = 2;
+    // true = 低电平点亮（多数开发板），false = 高电平点亮
+    bool ledActiveLow = true;
+    // 是否启用 LED 指示
+    bool ledEnabled = true;
 
     bool hasWifi() const { return wifiSsid[0] != 0; }
     bool hasAuthKey() const { return authKeyHex[0] != 0; }
+    // LED 引脚是否有效
+    bool ledPinValid() const { return ledPin >= 0 && ledPin <= 48; }
 };
 
 } // namespace xw

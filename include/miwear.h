@@ -81,6 +81,7 @@ enum class MwState {
     SESSION_OK,      // 会话建立
     AUTH_NONCE_SENT, // 已发 PhoneNonce
     AUTHENTICATED,   // 认证完成，加密通道就绪
+    AUTH_FAILED,     // 手表明确拒绝认证（Auth.status=0）
 };
 
 class MiWear {
@@ -125,11 +126,16 @@ public:
     uint32_t rxIpPackets = 0;
     uint32_t txIpPackets = 0;
     uint32_t txDataChunks = 0; // Mass 通道数据块（表盘上传）
+    uint32_t rxOverflows = 0;  // 接收缓冲溢出（流损坏）次数
 
     // 日志（弱依赖，可空）
     std::function<void(const char*)> onLog;
 
 private:
+    // V2 帧最大长度：8 字节头 + uint16 payload = 65543。
+    // 接收缓冲必须容得下一整帧 + 余量，否则攒帧逻辑会被截断打断。
+    static constexpr size_t RX_BUF_MAX = 66048;
+
     Stream* _io = nullptr;
     MwState _state = MwState::DISCONNECTED;
     std::vector<uint8_t> _rx;

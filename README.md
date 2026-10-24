@@ -26,6 +26,7 @@ DHCP 获取 IP、DNS 解析、TCP/UDP 联网，并额外获得**天气推送**�
 | Web 管理 | 状态页 / 配置页 / 蓝牙配对页 / 表盘管理页 / 固件升级页，自动保存到 NVS |
 | 配网 | 无 WiFi 或连接失败时自动开 AP `RedmiWatch5Net-XXXX`（192.168.4.1） |
 | 自动恢复出厂 | **可选，默认关闭**。连续 N 分钟既无 WiFi 也无手表连接时清空配置并重启进配网；网页可设开关与超时 |
+| 板载 LED 指示 | 用板载 LED 指示运行状态（配网/联网/配对/装表盘/升级/故障）；**GPIO 引脚与点亮电平可在网页配置**，并提供点亮/熄灭测试按钮 |
 
 ## 硬件与软件要求
 
@@ -45,13 +46,13 @@ DHCP 获取 IP、DNS 解析、TCP/UDP 联网，并额外获得**天气推送**�
 
 | 文件 | 用途 |
 | --- | --- |
-| `firmware/watch5-net-v1.2.0-full-16mb.bin` | USB 整片烧录，**首次必须用这个**（16MB 板） |
-| `firmware/watch5-net-v1.2.0-ota.bin` | Web「固件升级」页上传，后续免插线升级 |
+| `firmware/watch5-net-v1.3.0-full-16mb.bin` | USB 整片烧录，**首次必须用这个**（16MB 板） |
+| `firmware/watch5-net-v1.3.0-ota.bin` | Web「固件升级」页上传，后续免插线升级 |
 
 ```bash
 # USB 整片烧录（首次 / 救砖）
 esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 921600 \
-  write_flash -z 0x0 firmware/watch5-net-v1.2.0-full-16mb.bin
+  write_flash -z 0x0 firmware/watch5-net-v1.3.0-full-16mb.bin
 ```
 
 文件名规则：`watch5-net-<版本>-<用途>.bin`，详细说明与校验值见
@@ -148,7 +149,7 @@ python3 tools/push_watchface.py 表盘.bin --port COM3
 NVS 配置和蓝牙绑定，烧录后需要重新配网并重新配对手表。
 
 1. 打开 Web 页 →「固件升级」
-2. 选择 `firmware/watch5-net-v1.2.0-ota.bin`（自编译则是
+2. 选择 `firmware/watch5-net-v1.3.0-ota.bin`（自编译则是
    `.pio/build/esp32dev/firmware.bin`；**不要**选 `-full-16mb.bin` 合并镜像）
 3. 点「上传并升级」，页面会提示正在写入；保持供电和网络，设备完成后自动重启
 4. 新固件启动后，**成功连上已配置的 WiFi** 并稳定 60 秒会自动确认；若 180 秒仍
@@ -175,6 +176,33 @@ NVS 配置和蓝牙绑定，烧录后需要重新配网并重新配对手表。
 
 > 默认关闭。开启后只要 WiFi 正常就不会触发；但若 WiFi 本身长期不可用，
 > 设备会按设定周期反复清空配置并重启，请确认场景合适再开启。
+
+
+### 8. 板载 LED 状态指示
+
+用开发板上的 LED 就能看出设备在干什么，不用连电脑看串口日志。
+
+1. 打开 Web 页 →「配置」→「板载 LED 指示」
+2. 「GPIO 引脚」填实际接的引脚（多数 ESP32 开发板板载 LED 是 **GPIO2**，
+   填 **-1** 表示禁用 LED）
+3. 「点亮电平」按实际情况选（大多数板是**低电平点亮**）
+4. 保存后点「LED 测试」里的「点亮 / 熄灭」按钮确认接对了
+
+状态与灯型对应关系：
+
+| 状态 | 灯型 | 含义 |
+| --- | --- | --- |
+| 启动中 | 快闪 | 固件刚起来 |
+| 配网 AP 模式 | 慢闪 | 正在等用户连热点配网 |
+| 连接 WiFi 中 | 单闪 | 正在握手 |
+| 已联网且手表已连接 | **常亮** | 正常工作 |
+| 已联网但手表未连接 | 极慢短闪 | 网关在线，等手表 |
+| 蓝牙配对中 | 快速双闪 | 正在扫描/配对手表 |
+| 正在安装表盘 | 短亮长灭 | 表盘在往手表里传 |
+| 正在升级固件 | 方波 | OTA 写入或等待确认 |
+| 故障 | 常亮 3 秒 | 表盘安装失败等 |
+
+运行状态页也会显示当前 LED 状态，`/api/status` 接口里有 `led` 字段。
 
 
 ## Flash 容量与分区表
@@ -218,8 +246,8 @@ esp32-redmi-watch5-net/
 ├── partitions-16mb.csv     # 16MB 板分区表（= partitions.csv，保留副本）
 ├── sdkconfig.defaults      # ESP-IDF 配置（经典蓝牙/SPP）
 ├── firmware/               # 已编译的可烧录固件
-│   ├── watch5-net-v1.2.0-full-16mb.bin   # USB 整片烧录（首次）
-│   ├── watch5-net-v1.2.0-ota.bin        # Web OTA 升级
+│   ├── watch5-net-v1.3.0-full-16mb.bin   # USB 整片烧录（首次）
+│   ├── watch5-net-v1.3.0-ota.bin        # Web OTA 升级
 │   ├── SHA256SUMS.txt      # 校验值
 │   └── 使用说明.md          # 命名规则 / 烧录命令 / 自行编译
 ├── .gitignore              # 忽略 .pio 构建产物与测试可执行文件
@@ -230,6 +258,8 @@ esp32-redmi-watch5-net/
 ├── include/
 │   ├── appconfig.h         # 配置结构（NVS 持久化）
 │   ├── btlink.h/.cpp       # 蓝牙 SPP 链路管理（连接/重连/扫描/配对）
+│   ├── led.h/.cpp          # 板载 LED GPIO 驱动
+│   ├── ledlogic.h/.cpp     # LED 状态闪烁模式（纯逻辑，可主机端单测）
 │   ├── miwear.h/.cpp       # MiWear SPP V2 协议（拆帧/认证/加密）
 │   ├── proto.h/.cpp        # protobuf 编解码（Command/Auth/Weather/Clock）
 │   ├── crc16/crc32/md5/sha256  # 协议原语（表盘上传校验用 CRC-32/MD5）
@@ -291,10 +321,12 @@ cd tests && make        # 全部 33,423 项检查，无需 ESP32 工具链
 DHCP、IP/TCP/UDP 校验和、TCP 全流程（握手/窗口/MSS/重传/半关闭）、ICMP 分片重组、
 DNS 代答、MiWear 帧格式与握手推进、表盘文件解析（含 i18n 本地化表）、
 表盘安装全流程（分块重组后与 Python zlib/hashlib 参考值逐字节比对）、
-OTA 应用镜像头校验、蓝牙环形缓冲回绕与丢弃、扫描去重、MAC 解析等。
+OTA 应用镜像头校验、蓝牙环形缓冲回绕与丢弃、扫描去重、MAC 解析、
+LED 状态闪烁模式（含 millis 回绕）、protobuf 长度溢出防护、认证确认判定、
+串口 BAUD 溢出防护、超长行丢弃等。
 
-编译已验证（ESP32 Arduino 3.20017.0 / ESP-IDF 5.1 / PlatformIO 6）：
-Flash 占用 90.1%（1.83MB / 1.9375MB OTA 槽），RAM 26.5%（约 87KB / 320KB）。
+编译已验证（ESP32 Arduino 3.20017.0 / ESP-IDF 4.4 / PlatformIO 6）：
+Flash 占用 44.1%（1.77MB / 4MB OTA 槽），RAM 26.5%（约 87KB / 320KB）。
 
 ## 故障排查
 
@@ -305,9 +337,10 @@ Flash 占用 90.1%（1.83MB / 1.9375MB OTA 槽），RAM 26.5%（约 87KB / 320KB
 | 手表显示已连接但无法上网 | 看状态页「网关包」计数是否为 0；检查 WiFi 是否连通 |
 | WiFi 连不上 | 20 秒后自动进 AP 配网模式，重新配置 |
 | 日志出现 `watch hmac mismatch` | auth key 不对，重新提取 |
-| OTA 页上传被拒绝 | 确认上传的是 `-ota.bin`（如 `watch5-net-v1.1.2-ota.bin`），不是 `-full-4mb.bin` 合并镜像或表盘文件 |
+| OTA 页上传被拒绝 | 确认上传的是 `-ota.bin`（如 `watch5-net-v1.3.0-ota.bin`），不是 `-full-16mb.bin` 合并镜像或表盘文件 |
 | OTA 后反复重启 | 新固件未通过 180 秒健康检查会自动回滚；也可在升级页手动回滚 |
 | OTA 页显示无可用回滚 | 另一分区被表盘临时文件覆盖，或首次线刷尚无旧版本 |
+| LED 不亮 | 「配置」页的 GPIO 引脚填错（常见是 GPIO2），或点亮电平选反了；用「LED 测试」按钮确认 |
 
 ## 提取配对密钥（auth key）
 

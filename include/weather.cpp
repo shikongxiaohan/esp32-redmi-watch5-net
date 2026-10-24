@@ -43,7 +43,8 @@ static std::string locationKeyOf(const std::string& name) {
 void WeatherService::begin(MiWear& wear, const AppConfig& cfg) {
     _wear = &wear;
     _cfg = cfg;
-    _nextFetchMs = 0;
+    _lastFetchMs = 0;
+    _failUntilMs = 0;
 }
 
 bool WeatherService::_httpGet(const char* url, std::string& body) {
@@ -232,11 +233,17 @@ void WeatherService::loop() {
     if (!_wear || !_wear->authenticated()) return;
     if (_cfg.weatherRefreshMin == 0) return; // 关闭周期刷新
     uint32_t now = millis();
-    if (now < _nextFetchMs) return;
-    if (refreshNow()) {
-        _nextFetchMs = now + uint32_t(_cfg.weatherRefreshMin) * 60000UL;
+    // 失败退避期未到，跳过
+    if (_failUntilMs != 0 && (uint32_t)(now - _failUntilMs) < 0x80000000UL) return;
+    // 用「上次刷新时刻 + 间隔」的无符号差值判断到期，而不是比较绝对值：
+    // millis() 约 49.7 天回绕，绝对值比较（now < _nextFetchMs）在回绕后
+    // 恒为真，会让周期刷新永久停摆。
+    if (_lastFetchMs != 0 && (uint32_t)(now - _lastFetchMs) < intervalMs()) return;
+    _lastFetchMs = now;
+    if (!refreshNow()) {
+        _failUntilMs = now + 30000UL; // 失败退避 30 秒
     } else {
-        _nextFetchMs = now + 30000; // 失败退避
+        _failUntilMs = 0;
     }
 }
 

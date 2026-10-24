@@ -150,7 +150,10 @@ static void testCacheExpiry() {
     CHECK(!faceCacheExpired(m, 1000, 100));
     CHECK(!faceCacheExpired(m, 1050, 100));
     CHECK(faceCacheExpired(m, 1101, 100));
-    CHECK(!faceCacheExpired(m, 1100, 100));   // 边界：恰好等于 TTL 未过期
+    // 边界：恰好等于 TTL 即视为过期。
+    // 与 faceCacheRemaining 保持一致——该函数在 age >= ttl 时返回 0（已过期），
+    // 若此处判定为"未过期"，两者语义会矛盾（界面显示已过期但实际不清理）。
+    CHECK(faceCacheExpired(m, 1100, 100));
     CHECK_EQ(faceCacheRemaining(m, 1000, 100), 100u);
     CHECK_EQ(faceCacheRemaining(m, 1050, 100), 50u);
     CHECK_EQ(faceCacheRemaining(m, 1100, 100), 0u);

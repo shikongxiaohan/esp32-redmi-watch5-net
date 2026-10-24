@@ -113,8 +113,10 @@ public:
 
     // ---- 已配对设备 ----
     void refreshBonded();
-    size_t bondedCount() const { return _bondedCount; }
-    const Device& bondedDevice(size_t i) const { return _bonded[i]; }
+    // 线程安全的快照拷贝：_bonded 由 BT 任务写入、Web 页面在主循环读取，
+    // 直接暴露引用会有数据竞争（读到半写的 MAC 串）。
+    // 返回实际拷贝的条数（上限 max）。
+    size_t copyBonded(Device* out, size_t max) const;
 
     // ---- 连接管理（均在 BT 任务中异步执行，不阻塞调用方） ----
     void setWatchMac(const char* mac); // 切换目标 MAC 并重连
@@ -146,6 +148,9 @@ private:
 
     Device _bonded[MAX_BONDED];
     size_t _bondedCount = 0;
+    // _bonded 的独立锁：不能用 _scanMux，因为 _isBonded() 是在持有
+    // _scanMux 的回调上下文里被调用的，同一 portMUX 不可重入。
+    mutable portMUX_TYPE _bondedMux = portMUX_INITIALIZER_UNLOCKED;
 
     bool _connected = false;
     bool _started = false;

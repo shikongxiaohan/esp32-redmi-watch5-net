@@ -48,11 +48,14 @@
 namespace xw {
 
 class BtLink;
+class Led;
 
 class WebUi {
 public:
     void begin(class MiWear& wear, NetGw& gw, WeatherService& wx, AppConfig& cfg, BtLink& bt,
                WatchfaceInstaller& wf, const std::vector<WatchfaceEntry>& faces, OtaService& ota);
+    // 注入 LED 控制器（供网页"测试灯"按钮使用；可为空）
+    void setLed(Led* led) { _led = led; }
     void loop();
 
     // AP 配网模式相关
@@ -85,6 +88,7 @@ private:
     WatchfaceInstaller* _wf = nullptr;
     const std::vector<WatchfaceEntry>* _faces = nullptr;
     OtaService* _ota = nullptr;
+    Led* _led = nullptr;
 
     bool _apActive = false;
     bool _started = false;
@@ -102,6 +106,8 @@ private:
     uint32_t _wfLastListReqMs = 0;
     std::string _wfUploadName;    // 当前上传的文件名（用于缓存元数据）
     bool _wfPushMode = false;     // 当前上传来自串口推送通道
+    uint8_t _wfHead[2] = {0};     // 表盘文件头 2 字节（魔数校验用）
+    size_t _wfHeadLen = 0;
 
     // 表盘安装包缓存（安装成功即删；失败保留；48h 未用自动清理）
     FaceCacheMeta _fcMeta;
@@ -119,6 +125,7 @@ private:
     void _handleReboot();
     void _handleApi();
     void _handleNotFound();
+    void _handleLedTest();  // LED 测试：点亮 / 熄灭
     void _handlePair();
     void _handlePairScan();
     void _handlePairStop();

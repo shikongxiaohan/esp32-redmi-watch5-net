@@ -27,6 +27,7 @@
 
 #include "appconfig.h"
 #include "btlink.h"
+#include "led.h"
 #include "miwear.h"
 #include "netgw.h"
 #include "weather.h"
@@ -51,6 +52,7 @@ static WebUi web;
 static WatchfaceInstaller wfInstaller;
 static OtaService ota;
 static SerialPush serialPush;
+static Led led;
 static std::vector<WatchfaceEntry> g_faces; // 手表端表盘列表（type=4 subtype=0 响应）
 
 // ==================== 上游 socket 实现 ====================
@@ -403,6 +405,50 @@ static void manageAutoReset() {
     }
 }
 
+// ==================== 板载 LED 状态指示 ====================
+/*
+ * 状态优先级（高覆盖低）：
+ *   固件升级 > 表盘安装 > 配网 AP > 蓝牙配对 > 连接中 > 已联网未连手表 > 已联网
+ * 判定全部来自 ledlogic.h 的纯函数，便于主机端单测。
+ */
+static uint32_t ledFaultUntilMs = 0; // 故障提示的截止时刻（0 = 无故障提示）
+
+// 表盘安装失败：让 LED 亮 3 秒提示一下，用户不用看网页也知道失败了
+static void ledSignalFault() {
+    ledFaultUntilMs = millis() + 3000UL;
+}
+
+static void updateLed() {
+    if (!cfg.ledEnabled || !cfg.ledPinValid()) {
+        led.setState(LedState::Off);
+        return;
+    }
+    // 故障提示优先（3 秒内）
+    if (ledFaultActive(ledFaultUntilMs, millis())) {
+        led.setState(LedState::Error);
+        return;
+    }
+    if (ledFaultUntilMs != 0) ledFaultUntilMs = 0; // 提示已结束
+    LedState s;
+    if (apMode) {
+        s = LedState::ApMode;
+    } else if (ota.active() || ota.pendingVerify()) {
+        // 升级中：既包括接收固件，也包括「已写入待确认」阶段
+        s = LedState::FirmwareBusy;
+    } else if (wfInstaller.busy()) {
+        s = LedState::WatchfaceBusy;
+    } else if (bt.scanning()) {
+        s = LedState::Pairing;
+    } else if (WiFi.status() != WL_CONNECTED) {
+        s = LedState::Connecting;
+    } else if (bt.connected() && wear.authenticated()) {
+        s = LedState::Online;
+    } else {
+        s = LedState::OnlineNoWatch;
+    }
+    led.setState(s);
+}
+
 // ==================== Arduino 入口 ====================
 void setup() {
     Serial.begin(115200);
@@ -412,6 +458,14 @@ void setup() {
     WebUi::loadConfig(cfg);
     normalizeMac(cfg.watchMac);
     normalizeHexKey(cfg.authKeyHex);
+
+    // ---- 板载 LED ----
+    if (cfg.ledEnabled && cfg.ledPinValid()) {
+        led.begin(cfg.ledPin, cfg.ledActiveLow);
+        led.setState(LedState::Booting);
+    } else {
+        led.begin(-1, cfg.ledActiveLow);
+    }
 
     // ---- 接线（先 begin，startAp 依赖 _cfg） ----
     wear.begin(bt.stream());
@@ -431,6 +485,7 @@ void setup() {
             requestWatchfaceList();
         } else {
             Serial.printf("[xw][wf] install failed: %s\n", err.c_str());
+            ledSignalFault(); // LED 亮 3 秒提示失败
         }
         // 安装成功 → 删除板子上的安装包缓存；失败 → 保留以便重装
         web.watchfaceInstallDone(ok, err);
@@ -438,6 +493,7 @@ void setup() {
 
     wx.begin(wear, cfg);
     web.begin(wear, gw, wx, cfg, bt, wfInstaller, g_faces, ota);
+    web.setLed(&led);
     serialPush.begin(web);
 
     // WiFi（STA；无配置或超时则 AP 配网）
@@ -505,4 +561,6 @@ void loop() {
     wx.loop();
     manageWifi();
     manageAutoReset();
+    updateLed();
+    led.loop();
 }

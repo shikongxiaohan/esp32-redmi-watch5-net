@@ -286,7 +286,8 @@ static void testScan(BtLink& bt) {
 // ==================== bonded ====================
 static void testBonded(BtLink& bt) {
     std::printf("[btlink: bonded]\n");
-    CHECK(bt.bondedCount() == 0);
+    BtLink::Device snap[10];
+    CHECK(bt.copyBonded(snap, 10) == 0);
 
     // 注入 bonded 列表（esp_bd_addr_t 与人类 MAC 同序）
     bt.serial()._fakeBondedN = 2;
@@ -296,10 +297,15 @@ static void testBonded(BtLink& bt) {
     std::memcpy(bt.serial()._fakeBonded[1], m2, 6);
 
     bt.refreshBonded();
-    CHECK(bt.bondedCount() == 2);
-    CHECK_EQ_STR(bt.bondedDevice(0).mac, "AA:BB:CC:DD:EE:FF");
-    CHECK_EQ_STR(bt.bondedDevice(1).mac, "01:02:03:04:05:06");
-    CHECK(bt.bondedDevice(0).bonded);
+    size_t n = bt.copyBonded(snap, 10);
+    CHECK(n == 2);
+    CHECK_EQ_STR(snap[0].mac, "AA:BB:CC:DD:EE:FF");
+    CHECK_EQ_STR(snap[1].mac, "01:02:03:04:05:06");
+    CHECK(snap[0].bonded);
+
+    // 快照上限保护：max 小于实际条数时只拷贝 max 条
+    BtLink::Device one[1];
+    CHECK(bt.copyBonded(one, 1) == 1);
 
     // 扫描结果标记 bonded
     bt.startScan(3000);
@@ -312,7 +318,7 @@ static void testBonded(BtLink& bt) {
     // 空 bonded
     bt.serial()._fakeBondedN = 0;
     bt.refreshBonded();
-    CHECK(bt.bondedCount() == 0);
+    CHECK(bt.copyBonded(snap, 10) == 0);
 }
 
 // ==================== setWatchMac ====================

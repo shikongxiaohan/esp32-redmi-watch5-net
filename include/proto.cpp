@@ -105,7 +105,9 @@ tag_ok:;
                 len |= uint64_t(byte & 0x7f) << (7 * i);
                 if (!(byte & 0x80)) break;
             }
-            if (p + len > _n) return false;
+            // 先比较再相加：若写成 p + len > _n，len 接近 UINT64_MAX 时加法会回绕，
+            // 使越界检查被绕过（后续按巨大长度读越界内存）。
+            if (len > uint64_t(_n - p)) return false;
             f.data = _p + p;
             f.len = size_t(len);
             p += size_t(len);
@@ -233,6 +235,16 @@ MiCommand parseCommand(const uint8_t* data, size_t len) {
     }
     c.ok = (c.type != 0);
     return c;
+}
+
+bool authConfirmSucceeded(const MiCommand& cmd) {
+    if (!cmd.ok) return false;
+    PbReader authR(cmd.auth.data, cmd.auth.len);
+    // status 存在时以它为准；缺失才回退到子类型判定
+    if (authR.has(8)) {
+        return authR.varintOf(8, 0) == 1;
+    }
+    return cmd.subtype == cmd::AUTH_CONFIRM;
 }
 
 // ===================== 消息构造 =====================

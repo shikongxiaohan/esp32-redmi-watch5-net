@@ -24,3 +24,5 @@
 #include "../include/facecache.cpp"
 #include "../include/serialpush_proto.cpp"
 #include "../include/serialpush.cpp"
+#include "../include/ledlogic.cpp"
+#include "../include/led.cpp"

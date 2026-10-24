@@ -6,6 +6,8 @@
 #include <esp_spp_api.h>
 #if defined(ESP32) || defined(ESP_PLATFORM)
 #include <esp_gap_bt_api.h>
+// 用于按 ESP-IDF 主版本适配 GAP bonded 列表接口的原型差异
+#include <esp_idf_version.h>
 #endif
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -202,20 +204,27 @@ void BtLink::_taskBody() {
 bool BtLink::_resolveTarget(uint8_t out[6]) {
     if (_watchMacSet && parseMac(_watchMacStr, out)) return true;
     // 从已配对设备中挑选：优先名字含 Watch/Redmi/Xiaomi 的
-    if (_bondedCount == 0) refreshBonded();
+    bool noBonded = false;
+    portENTER_CRITICAL(&_bondedMux);
+    noBonded = (_bondedCount == 0);
+    portEXIT_CRITICAL(&_bondedMux);
+    if (noBonded) refreshBonded();
+    // 取快照后再判断，避免与 refreshBonded 的写入交错
+    Device snap[MAX_BONDED];
+    size_t n = copyBonded(snap, MAX_BONDED);
     int fallback = -1;
-    for (size_t i = 0; i < _bondedCount; i++) {
-        const char* n = _bonded[i].name;
-        if (std::strstr(n, "Watch") || std::strstr(n, "watch") ||
-            std::strstr(n, "Redmi") || std::strstr(n, "Xiaomi") ||
-            std::strstr(n, "手环") || std::strstr(n, "手表")) {
+    for (size_t i = 0; i < n; i++) {
+        const char* nm = snap[i].name;
+        if (std::strstr(nm, "Watch") || std::strstr(nm, "watch") ||
+            std::strstr(nm, "Redmi") || std::strstr(nm, "Xiaomi") ||
+            std::strstr(nm, "手环") || std::strstr(nm, "手表")) {
             fallback = int(i);
             break;
         }
         if (fallback < 0) fallback = int(i);
     }
     if (fallback < 0) return false;
-    return parseMac(_bonded[fallback].mac, out);
+    return parseMac(snap[fallback].mac, out);
 }
 
 bool BtLink::_tryConnect() {
@@ -330,20 +339,39 @@ void BtLink::refreshBonded() {
     // 直接用 ESP-IDF GAP classic 接口（3.1.x+ 才有库封装）
     int num = esp_bt_gap_get_bond_device_num();
     if (num <= 0) {
+        portENTER_CRITICAL(&_bondedMux);
         _bondedCount = 0;
+        portEXIT_CRITICAL(&_bondedMux);
         return;
     }
     if (num > int(MAX_BONDED)) num = int(MAX_BONDED);
+    // ESP-IDF 4.x 的原型是 esp_bt_gap_get_bond_device_list(int*, esp_bd_addr_t*)，
+    // IDF 5.x 改成了 uint16_t*。按 IDF 主版本号适配，避免升级工具链后编译失败。
+#if defined(ESP_IDF_VERSION_MAJOR) && ESP_IDF_VERSION_MAJOR >= 5
+    uint16_t cap = (uint16_t)num;
+    if (esp_bt_gap_get_bond_device_list(&cap, list) != ESP_OK || cap == 0) {
+        portENTER_CRITICAL(&_bondedMux);
+        _bondedCount = 0;
+        portEXIT_CRITICAL(&_bondedMux);
+        return;
+    }
+    got = int(cap);
+#else
     int cap = num;
     if (esp_bt_gap_get_bond_device_list(&cap, list) != ESP_OK || cap <= 0) {
+        portENTER_CRITICAL(&_bondedMux);
         _bondedCount = 0;
+        portEXIT_CRITICAL(&_bondedMux);
         return;
     }
     got = cap;
+#endif
 #else
     int num = _serial.getNumberOfBondedDevices();
     if (num <= 0) {
+        portENTER_CRITICAL(&_bondedMux);
         _bondedCount = 0;
+        portEXIT_CRITICAL(&_bondedMux);
         return;
     }
     if (num > int(MAX_BONDED)) num = int(MAX_BONDED);
@@ -351,20 +379,45 @@ void BtLink::refreshBonded() {
     if (got < 0) got = 0;
 #endif
     if (got > int(MAX_BONDED)) got = int(MAX_BONDED);
-    _bondedCount = size_t(got);
-    for (size_t i = 0; i < _bondedCount; i++) {
-        macToString(list[i], _bonded[i].mac);
-        _bonded[i].name[0] = 0; // bond 列表只有地址；名字经扫描获取
-        _bonded[i].rssi = 0;
-        _bonded[i].bonded = true;
+
+    // 先在局部缓冲里填好，再一次性加锁写入：避免读者看到
+    // "_bondedCount 已更新但 _bonded[i].mac 还没写完" 的中间态。
+    Device tmp[MAX_BONDED];
+    for (int i = 0; i < got; i++) {
+        macToString(list[i], tmp[i].mac);
+        tmp[i].name[0] = 0; // bond 列表只有地址；名字经扫描获取
+        tmp[i].rssi = 0;
+        tmp[i].bonded = true;
     }
+    portENTER_CRITICAL(&_bondedMux);
+    _bondedCount = size_t(got);
+    for (size_t i = 0; i < _bondedCount; i++) _bonded[i] = tmp[i];
+    portEXIT_CRITICAL(&_bondedMux);
+}
+
+size_t BtLink::copyBonded(Device* out, size_t max) const {
+    if (!out || max == 0) return 0;
+    size_t n = 0;
+    portENTER_CRITICAL(&_bondedMux);
+    n = _bondedCount;
+    if (n > max) n = max;
+    for (size_t i = 0; i < n; i++) out[i] = _bonded[i];
+    portEXIT_CRITICAL(&_bondedMux);
+    return n;
 }
 
 bool BtLink::_isBonded(const char* mac) {
+    if (!mac) return false;
+    bool found = false;
+    portENTER_CRITICAL(&_bondedMux);
     for (size_t i = 0; i < _bondedCount; i++) {
-        if (std::strcmp(_bonded[i].mac, mac) == 0) return true;
+        if (std::strcmp(_bonded[i].mac, mac) == 0) {
+            found = true;
+            break;
+        }
     }
-    return false;
+    portEXIT_CRITICAL(&_bondedMux);
+    return found;
 }
 
 // ==================== 连接管理 ====================

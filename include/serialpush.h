@@ -33,6 +33,7 @@ private:
     WebUi* _web = nullptr;
     std::string _line;
     bool _receiving = false;
+    bool _discardLine = false; // 当前行已超长丢弃中，等换行结束
     uint32_t _expected = 0;
     uint32_t _received = 0;
     uint32_t _lastDataMs = 0;

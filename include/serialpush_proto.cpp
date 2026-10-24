@@ -85,8 +85,11 @@ PushLine PushParser::parse(const std::string& line) {
         bool ok = !args.empty();
         for (char c : args) {
             if (c < '0' || c > '9') { ok = false; break; }
+            // 乘前判溢出：先确认 v*10+d 不会越过上限，再做乘法。
+            // 若先乘后判，足够长的十进制串会让 uint32 回绕，v 可能落回
+            // ≤ 4000000 的区间而通过校验，导致波特率被设成错误值。
+            if (v > (4000000u - uint32_t(c - '0')) / 10u) { ok = false; break; }
             v = v * 10 + uint32_t(c - '0');
-            if (v > 4000000u) { ok = false; break; }
         }
         if (!ok) out.cmd = PushCmd::UNKNOWN;
         else out.num = v;

@@ -53,7 +53,16 @@ private:
     MiWear* _wear = nullptr;
     AppConfig _cfg{};
     bool _busy = false;
-    uint32_t _nextFetchMs = 0;
+    // 上次刷新时刻（millis），用无符号差值算间隔，抗 49.7 天回绕
+    uint32_t _lastFetchMs = 0;
+    // 失败退避截止时刻
+    uint32_t _failUntilMs = 0;
+
+    uint32_t intervalMs() const {
+        uint32_t m = _cfg.weatherRefreshMin;
+        if (m == 0) m = 1;
+        return m * 60000UL;
+    }
 
     bool _httpGet(const char* url, std::string& body);
     bool _fetch(WeatherData& out);

@@ -5,6 +5,7 @@
 #include "webui.h"
 #include "miwear.h"
 #include "btlink.h"
+#include "led.h"
 
 #include <Arduino.h>
 #include <WebServer.h>
@@ -55,6 +56,10 @@ void WebUi::loadConfig(AppConfig& cfg) {
     cfg.autoResetMin = uint16_t(p.getUShort("armin", cfg.autoResetMin));
     if (cfg.autoResetMin < 1) cfg.autoResetMin = 1;
     if (cfg.autoResetMin > 1440) cfg.autoResetMin = 1440;
+    cfg.ledEnabled = p.getBool("led_en", cfg.ledEnabled);
+    cfg.ledActiveLow = p.getBool("led_low", cfg.ledActiveLow);
+    cfg.ledPin = int8_t(p.getChar("led_pin", char(cfg.ledPin)));
+    if (cfg.ledPin < -1 || cfg.ledPin > 48) cfg.ledPin = -1; // 越界视为禁用
     p.end();
 }
 
@@ -75,6 +80,9 @@ void WebUi::saveConfig(const AppConfig& cfg) {
     p.putString("appass", cfg.apPass);
     p.putBool("aren", cfg.autoResetEn);
     p.putUShort("armin", cfg.autoResetMin);
+    p.putBool("led_en", cfg.ledEnabled);
+    p.putBool("led_low", cfg.ledActiveLow);
+    p.putChar("led_pin", char(cfg.ledPin));
     p.end();
 }
 
@@ -305,7 +313,15 @@ void WebUi::_handleRoot() {
     h += "</td></tr><tr><th scope='row'>配对密钥</th><td>";
     h += _cfg->hasAuthKey() ? "<span class='ok'>已配置</span>"
                             : "<span class='bad'>未配置，无法认证</span>";
-    h += "</td></tr></table></section>";
+    h += "</td></tr>";
+    if (_led && _led->enabled()) {
+        h += "<tr><th scope='row'>LED 指示</th><td>";
+        h += "<span class='badge neutral'>" + String(ledStateName(_led->state())) + "</span>";
+        h += "<br><span class='help'>GPIO" + String(_led->pin()) + " · " +
+             (_led->activeLow() ? "低电平点亮" : "高电平点亮") + "</span>";
+        h += "</td></tr>";
+    }
+    h += "</table></section>";
 
     uint32_t up = millis() / 1000;
     char buf[64];
@@ -422,6 +438,34 @@ void WebUi::_handleConfig() {
     h += "</div><small class='help flush'>开启后，若连续这段时间内 <strong>WiFi 和手表都没有连接</strong>，"
          "设备会清空 WiFi、配对密钥与手表 MAC，然后重启进入配网模式。仅建议无人值守场景开启，默认关闭；"
          "设备处于配网 AP 模式时不计时。</small></section>";
+    h += "<section class='card'><h2>板载 LED 指示</h2><div class='grid'>";
+    h += "<div class='field'><label for='led_en'>状态</label><select id='led_en' name='led_en'>";
+    h += c.ledEnabled ? "<option value='1' selected>开启</option><option value='0'>关闭</option>"
+                      : "<option value='1'>开启</option><option value='0' selected>关闭</option>";
+    h += "</select></div>";
+    h += "<div class='field'><label for='led_pin'>GPIO 引脚</label>"
+         "<input id='led_pin' name='led_pin' type='number' min='-1' max='48' "
+         "aria-describedby='led-pin-help' value='" + String(c.ledPin) + "'>"
+         "<small id='led-pin-help' class='help'>-1 表示禁用；多数开发板板载 LED 在 GPIO2</small></div>";
+    h += "<div class='field'><label for='led_low'>点亮电平</label><select id='led_low' name='led_low'>";
+    h += c.ledActiveLow ? "<option value='1' selected>低电平点亮（常见）</option><option value='0'>高电平点亮</option>"
+                        : "<option value='1'>低电平点亮（常见）</option><option value='0' selected>高电平点亮</option>";
+    h += "</select></div>";
+    h += "</div><small class='help flush'>指示含义："
+         "<strong>快闪</strong>启动中 · <strong>慢闪</strong>配网 AP · "
+         "<strong>常亮</strong>已联网并连接手表 · <strong>极慢短闪</strong>已联网但手表未连接 · "
+         "<strong>快速双闪</strong>蓝牙配对中 · <strong>短亮长灭</strong>正在安装表盘 · "
+         "<strong>方波</strong>正在升级固件。</small></section>";
+
+    h += "<section class='card'><h2>LED 测试</h2><div class='actions between'>"
+         "<div>手动点亮 / 熄灭板载 LED<small>用于确认引脚与点亮电平是否正确</small></div>"
+         "<div class='actions'>"
+         "<form method='post' action='/led/test'><input type='hidden' name='on' value='1'>"
+         "<button type='submit' class='secondary'>点亮</button></form>"
+         "<form method='post' action='/led/test'><input type='hidden' name='on' value='0'>"
+         "<button type='submit' class='secondary'>熄灭</button></form>"
+         "</div></div></section>";
+
     h += "<div class='actions between card'><span class='help flush'>保存后设备将自动重启</span>"
          "<button type='submit'>保存配置并重启</button></div></form>";
 
@@ -473,6 +517,14 @@ void WebUi::_handleSave() {
     }
     if (c.autoResetMin < 1) c.autoResetMin = 1;
     if (c.autoResetMin > 1440) c.autoResetMin = 1440;
+    c.ledEnabled = _server->hasArg("led_en") && _server->arg("led_en") == "1";
+    c.ledActiveLow = !_server->hasArg("led_low") || _server->arg("led_low") == "1";
+    if (_server->hasArg("led_pin")) {
+        int pin = _server->arg("led_pin").toInt();
+        if (pin < -1) pin = -1;
+        if (pin > 48) pin = 48;
+        c.ledPin = int8_t(pin);
+    }
 
     // 密钥规范化：去空格、转小写
     {
@@ -546,6 +598,12 @@ void WebUi::_handleApi() {
         j += ",\"tcpConns\":" + String(_gw->tcpConnsOpened);
         j += ",\"udpFlows\":" + String(_gw->udpFlows);
     }
+    if (_led && _led->enabled()) {
+        j += ",\"led\":\"" + String(ledStateName(_led->state())) + "\"";
+        j += ",\"ledPin\":" + String(_led->pin());
+    } else {
+        j += ",\"led\":\"disabled\"";
+    }
     j += "}";
     _server->send(200, "application/json", j);
 }
@@ -606,18 +664,23 @@ void WebUi::_handlePair() {
         h += "</tbody></table></div></section>";
     }
 
-    if (_bt && _bt->bondedCount() > 0) {
-        h += "<section class='card'><div class='cardhead'><h2>已绑定设备</h2><span class='meta'>共 " +
-             String(_bt->bondedCount()) + " 个</span></div><div class='table-wrap'><table class='data'>"
-             "<thead><tr><th scope='col'>MAC 地址</th><th scope='col'>操作</th></tr></thead><tbody>";
-        for (size_t i = 0; i < _bt->bondedCount(); i++) {
-            const BtLink::Device& d = _bt->bondedDevice(i);
-            h += "<tr><td class='filetd'>" + String(d.mac) + "</td>";
-            h += "<td><form method='post' action='/pair/save'><input type='hidden' name='mac' value='" +
-                 String(d.mac) + "'><button type='submit' class='secondary'>选择</button></form></td></tr>";
+    if (_bt) {
+        // 用快照读取，避免与 BT 任务写入 _bonded 竞态
+        BtLink::Device bondedSnap[10];
+        size_t bondedN = _bt->copyBonded(bondedSnap, 10);
+        if (bondedN > 0) {
+            h += "<section class='card'><div class='cardhead'><h2>已绑定设备</h2><span class='meta'>共 " +
+                 String(bondedN) + " 个</span></div><div class='table-wrap'><table class='data'>"
+                 "<thead><tr><th scope='col'>MAC 地址</th><th scope='col'>操作</th></tr></thead><tbody>";
+            for (size_t i = 0; i < bondedN; i++) {
+                const BtLink::Device& d = bondedSnap[i];
+                h += "<tr><td class='filetd'>" + String(d.mac) + "</td>";
+                h += "<td><form method='post' action='/pair/save'><input type='hidden' name='mac' value='" +
+                     String(d.mac) + "'><button type='submit' class='secondary'>选择</button></form></td></tr>";
+            }
+            h += "</tbody></table></div><small class='help'>已绑定设备无需再次确认；若手表已恢复出厂设置，"
+                 "请先在手表上取消配对后重新扫描。</small></section>";
         }
-        h += "</tbody></table></div><small class='help'>已绑定设备无需再次确认；若手表已恢复出厂设置，"
-             "请先在手表上取消配对后重新扫描。</small></section>";
     }
 
     h += "<section class='card danger-zone'><h2>自动配对模式</h2><div class='actions between'>"
@@ -873,6 +936,10 @@ void WebUi::_handleWfUploadChunk() {
         _wfUploadPump = 0;
         _wfLastDataMs = millis();
         _wfPushMode = false;
+        // 头部状态在 START 最开头重置：下面有多个提前 return 的分支，
+        // 放在末尾会导致「上一次上传失败后的残留头部」带到下一次。
+        _wfHeadLen = 0;
+        _wfHead[0] = _wfHead[1] = 0;
         String fn = up.filename;
         fn.toLowerCase();
         if (!fn.endsWith(".bin")) {
@@ -894,10 +961,17 @@ void WebUi::_handleWfUploadChunk() {
     }
 
     if (up.status == UPLOAD_FILE_WRITE) {
-        if (!_wfUploadBad && _wfUploadBytes == 0 && up.currentSize >= 2 &&
-            (up.buf[0] != 0x5A || up.buf[1] != 0xA5)) {
-            _wfUploadBad = true;
-            _wfStage.abort();
+        // 表盘文件魔数校验：必须等累计到 2 字节才能判。
+        // 原实现只在「首包就 >= 2 字节」时检查，若首包恰好 1 字节，
+        // 后续包因 _wfUploadBytes != 0 而永久跳过校验，非法文件得以进入。
+        if (!_wfUploadBad) {
+            while (_wfHeadLen < 2 && _wfHeadLen < up.currentSize) {
+                _wfHead[_wfHeadLen++] = up.buf[_wfHeadLen];
+            }
+            if (_wfHeadLen == 2 && (_wfHead[0] != 0x5A || _wfHead[1] != 0xA5)) {
+                _wfUploadBad = true;
+                _wfStage.abort();
+            }
         }
         if (!_wfUploadBad) {
             _wfLastDataMs = millis();
@@ -922,6 +996,12 @@ void WebUi::_handleWfUploadChunk() {
         }
         uint32_t bytes = 0;
         if (!_wfStage.finish(bytes)) {
+            _wfUploadBad = true;
+            _wfStage.abort();
+            return;
+        }
+        // 头部必须完整（2 字节魔数），否则文件被截断
+        if (bytes < 2 || _wfHeadLen < 2) {
             _wfUploadBad = true;
             _wfStage.abort();
             return;
@@ -994,6 +1074,8 @@ bool WebUi::wfPushBegin(uint32_t size, const std::string& name, std::string& err
     _wfUploadName = name;
     _wfUploadBytes = 0;
     _wfUploadPump = 0;
+    _wfHeadLen = 0;
+    _wfHead[0] = _wfHead[1] = 0;
     _wfLastDataMs = millis();
     _wfPushMode = true;
     return true;
@@ -1002,6 +1084,16 @@ bool WebUi::wfPushBegin(uint32_t size, const std::string& name, std::string& err
 size_t WebUi::wfPushData(const uint8_t* data, size_t len) {
     if (!_wfPushMode) return 0;
     if (!data || !len) return 0;
+    // 与网页上传走同一套头部魔数校验（表盘文件以 5A A5 开头）
+    while (_wfHeadLen < 2 && _wfHeadLen < len) {
+        _wfHead[_wfHeadLen++] = data[_wfHeadLen];
+    }
+    if (_wfHeadLen == 2 && (_wfHead[0] != 0x5A || _wfHead[1] != 0xA5)) {
+        Serial.println("[xw] watchface push rejected: bad magic");
+        _wfStage.abort();
+        _wfPushMode = false;
+        return 0;
+    }
     _wfLastDataMs = millis();
     size_t n = _wfStage.write(data, len);
     if (n != len) {
@@ -1031,8 +1123,8 @@ bool WebUi::wfPushEnd(std::string& err) {
         return false;
     }
     _wfPushMode = false;
-    // 表盘文件头必须是 5A A5
-    if (bytes < 2) {
+    // 表盘文件头必须是 5A A5；头部不足 2 字节说明数据被截断
+    if (bytes < 2 || _wfHeadLen < 2) {
         err = "安装包过短";
         _wfStage.abort();
         return false;
@@ -1336,6 +1428,20 @@ void WebUi::_handleFwApi() {
     _server->send(200, "application/json", j);
 }
 
+void WebUi::_handleLedTest() {
+    // on=1 常亮，on=0 熄灭；未指定 on 则切换
+    bool on = !(_server->hasArg("on") && _server->arg("on") == "0");
+    if (_server->hasArg("on")) on = (_server->arg("on") == "1");
+    bool ok = false;
+    if (_led && _led->enabled()) {
+        if (on) _led->testOn();
+        else _led->testOff();
+        ok = true;
+    }
+    _server->send(ok ? 200 : 409, "text/plain; charset=utf-8",
+                  ok ? (on ? "ON" : "OFF") : "LED 未启用");
+}
+
 void WebUi::_handleNotFound() {
     // AP 配网模式：任意域名都导回配置页（captive portal 行为）
     if (_apActive) {
@@ -1404,6 +1510,7 @@ void WebUi::begin(MiWear& wear, NetGw& gw, WeatherService& wx, AppConfig& cfg, B
     _server->on("/api/status", [this]() { _handleApi(); });
     _server->on("/api/watchface", [this]() { _handleWfApi(); });
     _server->on("/api/firmware", [this]() { _handleFwApi(); });
+    _server->on("/led/test", HTTP_POST, [this]() { _handleLedTest(); });
     _server->onNotFound([this]() { _handleNotFound(); });
     _server->begin();
 }

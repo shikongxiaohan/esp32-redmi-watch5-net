@@ -30,6 +30,7 @@ void SerialPush::_reset() {
     _receiving = false;
     _expected = 0;
     _received = 0;
+    _discardLine = false;
     _line.clear();
 }
 
@@ -40,16 +41,28 @@ void SerialPush::loop() {
         if (c < 0) break;
         char ch = (char)c;
         if (ch == '\n') {
+            if (_discardLine) {
+                _discardLine = false;
+                _line.clear();
+                continue;
+            }
             if (!_line.empty() && _line.back() == '\r') _line.pop_back();
             _handleLine(_line);
             _line.clear();
-            if (_line.capacity() > 4096) _line.clear();
+            if (_line.capacity() > 4096) { _line.clear(); _line.shrink_to_fit(); }
             continue;
         }
         if (ch == '\r') continue;
+        if (_discardLine) {
+            // 上一行超长被丢弃：把本行剩余字符全部丢掉，直到换行。
+            // 否则残余字节会被当作一条新命令重新累积。
+            continue;
+        }
         if (_line.size() >= PushParser::MAX_LINE) {
-            // 超长行直接丢弃，避免缓冲无限增长
+            // 超长行：丢弃整行（直到换行），避免缓冲无限增长，
+            // 也避免残余字符被拼成伪命令（如 DATA/END）误触发写盘流程。
             _line.clear();
+            _discardLine = true;
             _reply("ERR line too long");
             continue;
         }

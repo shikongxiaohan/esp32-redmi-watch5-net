@@ -171,10 +171,17 @@ void MiWear::onConnected() {
 void MiWear::onBytes(const uint8_t* data, size_t len) {
     if (!len) return;
     _rx.insert(_rx.end(), data, data + len);
-    // 防御：缓冲无限增长（异常流）
-    if (_rx.size() > 8192) {
-        // 保留尾部，丢弃头部
-        _rx.erase(_rx.begin(), _rx.end() - 1024);
+    // 防御：缓冲无限增长（异常流）。
+    // V2 帧的 payload 长度是 uint16，单帧最大 8 + 65535 = 65543 字节，
+    // 所以缓冲容量必须容得下一整帧，否则「攒帧等完整」的逻辑会被
+    // 截断逻辑打断（帧被腰斩 → CRC 校验失败 → 丢帧 + 通道失步）。
+    // 超过上限说明流已损坏（不是合法大帧），此时整块丢弃并重新同步，
+    // 比「丢头留尾」安全：丢头留尾会把帧头切在半帧中间，
+    // 之后必须等下一次出现 A5A5 才能重新同步。
+    if (_rx.size() > RX_BUF_MAX) {
+        _rx.clear();
+        rxOverflows++;
+        _log("miwear: rx buffer overflow, resync");
     }
     _lastActivityMs = millis();
     _processBuffer();
@@ -478,13 +485,21 @@ void MiWear::_handleWatchNonce(const uint8_t* data, size_t len) {
 
 void MiWear::_finishAuthIfConfirmed(const uint8_t* data, size_t len) {
     MiCommand cmd = parseCommand(data, len);
-    PbReader authR(cmd.auth.data, cmd.auth.len);
-    uint64_t status = authR.varintOf(8, 1); // Auth.status
-    if (cmd.subtype == cmd::AUTH_CONFIRM || status == 1) {
+    // 判定逻辑在 proto.cpp 的 authConfirmSucceeded()（纯函数，可主机端单测）：
+    // Auth.status 存在时以它为准（1=成功，0=手表明确拒绝）；
+    // 字段缺失时才回退到「命令子类型即确认」的宽松判定。
+    // 修复前用 varintOf(8, 1) 且对 subtype 短路，会把手表明确返回的
+    // status=0 当成认证成功，导致加密通道用错密钥、连接随机断开。
+    if (authConfirmSucceeded(cmd)) {
         _state = MwState::AUTHENTICATED;
         _log("miwear: AUTHENTICATED");
     } else {
-        _log("miwear: auth failed by watch");
+        _state = MwState::AUTH_FAILED;
+        PbReader authR(cmd.auth.data, cmd.auth.len);
+        char buf[64];
+        std::snprintf(buf, sizeof(buf), "miwear: auth failed by watch (status=%llu)",
+                      (unsigned long long)authR.varintOf(8, 0));
+        _log(buf);
     }
 }
 

@@ -36,10 +36,12 @@ struct FaceCacheMeta {
 };
 
 // 缓存包是否已过期（超过 TTL 未使用）
+// 用 >= 与 faceCacheRemaining 保持一致：年龄正好等于 TTL 时，
+// remaining 返回 0（已过期），这里也必须判定为过期，否则两者边界矛盾。
 inline bool faceCacheExpired(const FaceCacheMeta& meta, uint32_t nowSec, uint32_t ttlSec) {
     if (!meta.present) return false;
     if (nowSec < meta.uploadedAt) return false;  // 时钟被回拨：暂不清理
-    return (uint32_t)(nowSec - meta.uploadedAt) > ttlSec;
+    return (uint32_t)(nowSec - meta.uploadedAt) >= ttlSec;
 }
 
 // 缓存包剩余寿命（秒）；已过期返回 0

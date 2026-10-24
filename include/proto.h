@@ -108,6 +108,19 @@ struct MiCommand {
 
 MiCommand parseCommand(const uint8_t* data, size_t len);
 
+/*
+ * 认证确认判定（纯函数，可主机端单测）
+ *
+ * 语义：
+ *   - Auth 子消息里带 status 字段时，以它为准：1 = 成功，其他值 = 失败
+ *   - status 字段缺失时，回退到「命令子类型 == AUTH_CONFIRM 即视为确认」
+ *
+ * 关键点：不能用 varintOf(8, 1) 之类的「缺失即成功」默认值，
+ * 也不能对 subtype 短路 —— 否则手表明确返回 status=0 时会被误判为认证成功，
+ * 后续加密通道用错密钥，表现为连接随机中断且日志误报「认证成功」。
+ */
+bool authConfirmSucceeded(const MiCommand& cmd);
+
 // ===================== 表盘安装响应解析 =====================
 // Command{type=4, subtype=4, watchface{installStatus}} 的安装状态
 struct WatchfaceInstallStatus {
