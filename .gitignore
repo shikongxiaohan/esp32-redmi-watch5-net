@@ -1,0 +1,27 @@
+# PlatformIO
+.pio/build/
+.pio/libdeps/
+.pio/pkgs/
+
+# 编译产物
+*.o
+*.elf
+*.map
+
+# 主机测试可执行文件（由 tests/Makefile 生成）
+tests/test_btlink
+tests/test_miwear
+tests/test_netgw
+tests/test_ota
+tests/test_protocol
+tests/test_watchface
+
+# 崩溃转储
+core.*
+core
+
+# 编辑器 / 系统
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp

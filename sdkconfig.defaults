@@ -1,0 +1,14 @@
+; ESP32 红米 Watch 5 网络网关 - ESP-IDF 额外配置
+; 确保经典蓝牙 + SPP 开启（esp32dev 默认已开，这里显式声明保险）
+CONFIG_BT_ENABLED=y
+CONFIG_BT_CLASSIC_ENABLED=y
+CONFIG_BT_SPP_ENABLED=y
+; NVS 配置存储（分区 20KB）
+CONFIG_NVS_ENCRYPTION=n
+;
+; 关于 OTA 回滚：Arduino-ESP32 框架的预编译 sdkconfig 已开启
+;   CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y / CONFIG_APP_ROLLBACK_ENABLE=y
+; 因此 bootloader 具备回滚能力、框架会调用 verifyRollbackLater()（本项目在 ota.cpp
+; 中覆盖为 true，把「确认/回滚」的时机交给 OtaService::loop 的 60s/180s 健康检查）。
+; 注意：本文件对 Arduino 框架构建不生效（PlatformIO 仅在 ESP-IDF 框架下读取它），
+; 升级框架大版本后请确认上述两项仍为 y。

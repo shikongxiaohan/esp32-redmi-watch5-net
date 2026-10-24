@@ -1,0 +1,9 @@
+# ESP32 4MB partition table (dual OTA)
+# ota_0 / ota_1：各 1.9375MB，支持 Web OTA 与回滚
+# 非活动 OTA 槽同时作为表盘临时安装区，不再使用 LittleFS
+# Name,   Type, Subtype, Offset,   Size
+nvs,      data, nvs,     0x9000,   0x5000,
+otadata,  data, ota,     0xE000,   0x2000,
+ota_0,    app,  ota_0,   0x10000,  0x1F0000,
+ota_1,    app,  ota_1,   0x200000, 0x1F0000,
+coredump, data, coredump,0x3F0000, 0x10000,

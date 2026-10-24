@@ -1,0 +1,13 @@
+﻿# ESP32 8MB 分区表（备用，换 8MB 板子后改名为 partitions.csv 使用）
+# 相比 4MB 版：
+#   - OTA 槽扩到 2×2.5MB（当前固件 1.83MB，仍有约 40% 余量）
+#   - 独立 2MB 表盘暂存分区（data, 自定义 subtype 0x40），
+#     装表盘不再覆盖回滚镜像，OTA 回滚能力永久保留
+#   - coredump 64K；末尾 0.875MB 未分配（保留扩展）
+# Name,     Type, Subtype,  Offset,    Size
+nvs,        data, nvs,      0x9000,    0x5000,
+otadata,    data, ota,      0xE000,    0x2000,
+ota_0,      app,  ota_0,    0x10000,   0x280000,
+ota_1,      app,  ota_1,    0x290000,  0x280000,
+watchface,  data, 0x40,     0x510000,  0x200000,
+coredump,   data, coredump, 0x710000,  0x10000,
