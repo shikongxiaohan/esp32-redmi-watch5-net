@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "firmware/**"
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit-tests:
+    name: 主机端单元测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 编译并运行全部测试
+        run: |
+          cd tests
+          make -j"$(nproc)"
+
+  firmware-build:
+    name: 固件编译
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: "16MB 默认布局"
+            flash_size: 16MB
+            partitions: partitions.csv
+          - label: "8MB 兼容布局"
+            flash_size: 8MB
+            partitions: partitions-8mb.csv
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: 缓存 PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio
+          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+      - name: 安装 PlatformIO
+        run: pip install -U platformio
+      - name: 编译（${{ matrix.label }}）
+        run: >
+          pio run -e esp32dev
+          --project-option "board_build.flash_size=${{ matrix.flash_size }}"
+          --project-option "board_build.partitions=${{ matrix.partitions }}"

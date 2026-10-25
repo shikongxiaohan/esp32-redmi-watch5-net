@@ -1,0 +1,62 @@
+name: 缺陷报告
+description: 报告固件或 Web 界面的异常行为
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提交前请确认：已升级到最新版本，且 [DOCUMENTATION.md](../../blob/main/DOCUMENTATION.md#11-故障排查) 的故障排查表没有覆盖你的问题。
+        **安全漏洞不要走此模板**，请阅读 [SECURITY.md](../../blob/main/SECURITY.md)。
+  - type: input
+    id: version
+    attributes:
+      label: 固件版本
+      placeholder: v1.5.0
+    validations:
+      required: true
+  - type: dropdown
+    id: flash
+    attributes:
+      label: 板子 Flash 容量
+      options:
+        - 16MB
+        - 8MB
+        - 4MB
+        - 其他 / 不确定
+    validations:
+      required: true
+  - type: input
+    id: watch
+    attributes:
+      label: 手表型号
+      placeholder: 红米 Watch 5 蓝牙版（非 eSIM）
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: 现象描述
+      description: 发生了什么？和期望的行为有什么差别？
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 上电
+        2. ...
+        3. 出现异常
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 串口日志 / 页面截图
+      description: 115200 波特率串口输出；敏感信息（WiFi 密码、auth key）请打码
+      render: shell
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充信息
+      description: 已排除的可能性、临时规避办法等

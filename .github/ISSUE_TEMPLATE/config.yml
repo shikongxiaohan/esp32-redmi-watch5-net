@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 安全漏洞报告
+    url: https://github.com/shikongxiaohan/esp32-redmi-watch5-net/blob/main/SECURITY.md
+    about: 安全漏洞请私下报告，不要在 Issue 中公开
+  - name: 项目文档
+    url: https://github.com/shikongxiaohan/esp32-redmi-watch5-net/blob/main/DOCUMENTATION.md
+    about: 使用说明、协议细节、分区表与常见问题，先看文档再提问

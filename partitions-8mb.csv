@@ -1,4 +1,4 @@
-﻿# ESP32 8MB 分区表（备用，换 8MB 板子后改名为 partitions.csv 使用）
+# ESP32 8MB 分区表（备用，换 8MB 板子后改名为 partitions.csv 使用）
 # 相比 4MB 版：
 #   - OTA 槽扩到 2×2.5MB（当前固件 1.83MB，仍有约 40% 余量）
 #   - 独立 2MB 表盘暂存分区（data, 自定义 subtype 0x40），
