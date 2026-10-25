@@ -1,7 +1,7 @@
 /*
  * 小米 MiWear SPP V2 协议层
  *
- * 实现依据（见 docs/protocol-notes.md）：
+ * 实现依据（见 DOCUMENTATION.md 第 9 节）：
  *  - Gadgetbridge XiaomiSppPacketV2 / XiaomiSppProtocolV2 / XiaomiAuthService（AGPL-3.0）
  *  - AstroBox-Public miwear/packet.rs / device/auth.rs / device/hello.rs（AGPL-3.0）
  *

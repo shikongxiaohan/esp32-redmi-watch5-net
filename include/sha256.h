@@ -2,7 +2,7 @@
  * ESP32 红米 Watch 5 网络网关
  * SHA-256 / HMAC-SHA256 实现（纯 C++，无平台依赖，可主机单测）
  *
- * 依据小米 MiWear 协议（见 docs/protocol-notes.md）：
+ * 依据小米 MiWear 协议（见 DOCUMENTATION.md 第 9 节）：
  *   认证 KDF 使用 HMAC-SHA256，标签 "miwear-auth"
  */
 #pragma once

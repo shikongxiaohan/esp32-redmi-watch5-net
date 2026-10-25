@@ -1,7 +1,7 @@
 /*
  * 自定义表盘安装（对标米坛社区「表盘自定义工具箱」tech.pingx.watchface）
  *
- * 依据（见 docs/protocol-notes.md 第 10 节）：
+ * 依据（见 DOCUMENTATION.md 第 9.11 节）：
  *  - Gadgetbridge XiaomiWatchfaceService / XiaomiDataUploadService（AGPL-3.0）
  *  - Gadgetbridge XiaomiFWHelper.parseAsWatchface（vela .bin 文件头解析）
  *
