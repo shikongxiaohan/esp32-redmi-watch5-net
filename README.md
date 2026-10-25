@@ -1,5 +1,9 @@
 # ESP32 红米 Watch 5 网络网关
 
+[![CI](https://github.com/shikongxiaohan/esp32-redmi-watch5-net/actions/workflows/ci.yml/badge.svg)](https://github.com/shikongxiaohan/esp32-redmi-watch5-net/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/shikongxiaohan/esp32-redmi-watch5-net.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/shikongxiaohan/esp32-redmi-watch5-net.svg)](https://github.com/shikongxiaohan/esp32-redmi-watch5-net/releases/latest)
+
 > **完整文档请见 [DOCUMENTATION.md](DOCUMENTATION.md)**（协议细节、使用手册、固件发布、测试说明等全部内容）。
 > 当前版本 **v1.5.0** · ESP32 / Arduino · 16MB Flash
 
