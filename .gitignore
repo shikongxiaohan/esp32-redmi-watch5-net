@@ -17,6 +17,7 @@ tests/test_protocol
 tests/test_watchface
 tests/test_serialpush
 tests/test_led
+tests/test_perf
 
 # 崩溃转储
 core.*
