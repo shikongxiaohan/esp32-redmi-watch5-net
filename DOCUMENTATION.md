@@ -874,6 +874,7 @@ esp32-redmi-watch5-net/
 - [AstroBox-Public](https://github.com/hnczlab/AstroBox-Public)（AGPL-3.0）——
   网络栈（ipstack）与 DHCP 方案的参考实现
 - ESP-IDF / arduino-esp32 的 BluetoothSerial 与 lwIP
+- Kimi K3.1 Pro（Moonshot AI 模型）—— Web 管理界面美术支持
 
 ## 17. 免责声明
 

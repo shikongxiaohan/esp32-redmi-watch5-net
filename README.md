@@ -108,6 +108,7 @@ cd tests && make
 
 - [Gadgetbridge](https://github.com/Freeyourgadget/Gadgetbridge)（AGPL-3.0）—— MiWear 协议、天气/时钟命令序列参考实现
 - [AstroBox-Public](https://github.com/hnczlab/AstroBox-Public)（AGPL-3.0）—— 网络栈（ipstack）与 DHCP 方案参考实现
+- Kimi K3.1 Pro（Moonshot AI 模型）—— Web 管理界面美术支持
 
 ## 免责声明
 
