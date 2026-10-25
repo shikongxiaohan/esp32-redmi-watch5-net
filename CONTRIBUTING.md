@@ -34,6 +34,17 @@ cd tests && make
 cd tests && make clean && make
 ```
 
+### 8MB 板构建
+
+默认目标为 16MB 布局。8MB 板使用专用环境（自动切换到 `partitions-8mb.csv` + 8MB Flash）：
+
+```bash
+pio run -e esp32dev-8mb
+pio run -e esp32dev-8mb -t upload monitor
+```
+
+> **4MB 板无法同时容纳双 OTA 与独立表盘分区**，不建议使用，详见 [DOCUMENTATION.md 第 7 节](DOCUMENTATION.md#7-flash-容量与分区表)。
+
 提交前请确保：`pio run` 通过、`cd tests && make` 全部 PASS。
 
 ## 分支与提交规范

@@ -363,17 +363,17 @@ NVS 配置和蓝牙绑定，烧录后需要重新配网并重新配对手表。
 **本版固件默认按 16MB Flash 构建**（`partitions.csv` = 16MB 布局）。
 仓库同时提供三套分区表，按板子容量选用：
 
-| 板子 Flash | 使用的分区表 | 需改的配置 |
+| 板子 Flash | 使用的分区表 | 构建方式 |
 | --- | --- | --- |
-| **16MB**（当前默认，推荐） | `partitions.csv`（= `partitions-16mb.csv`） | 无需改 |
-| 8MB | `partitions-8mb.csv` | `board_build.flash_size = 8MB` + `board_build.partitions = partitions-8mb.csv` |
+| **16MB**（当前默认，推荐） | `partitions.csv`（= `partitions-16mb.csv`） | `pio run`（env `esp32dev`，无需改） |
+| 8MB | `partitions-8mb.csv` | `pio run -e esp32dev-8mb`（专用 env，自动切换分区表与容量） |
 | 4MB | 不建议 | 无法同时容纳双 OTA 与独立表盘分区 |
 
 切换步骤：
 
-1. 改 `platformio.ini` 的 `board_build.flash_size` 与 `board_build.partitions`
-2. `cp partitions-8mb.csv partitions.csv`（若换到 8MB）
-3. **重新整片烧录**：`pio run -t erase`（新板第一次必须全擦，会清 WiFi 配置与蓝牙绑定），
+1. 8MB 板直接使用专用环境 `pio run -e esp32dev-8mb`（无需改 `platformio.ini`；
+   也可手动把 `board_build.flash_size` 改为 `8MB`、`board_build.partitions` 改为 `partitions-8mb.csv`）
+2. **重新整片烧录**：`pio run -t erase`（新板第一次必须全擦，会清 WiFi 配置与蓝牙绑定），
    再烧对应容量的整片镜像（merge_bin 时 `--flash_size` 与 `--fill-flash-size` 同步改），
    或用 Flash Download Tool 选对应容量烧整片镜像
 

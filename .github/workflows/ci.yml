@@ -28,11 +28,9 @@ jobs:
       matrix:
         include:
           - label: "16MB 默认布局"
-            flash_size: 16MB
-            partitions: partitions.csv
+            env: esp32dev
           - label: "8MB 兼容布局"
-            flash_size: 8MB
-            partitions: partitions-8mb.csv
+            env: esp32dev-8mb
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -48,7 +46,4 @@ jobs:
       - name: 安装 PlatformIO
         run: pip install -U platformio
       - name: 编译（${{ matrix.label }}）
-        run: >
-          pio run -e esp32dev
-          --project-option "board_build.flash_size=${{ matrix.flash_size }}"
-          --project-option "board_build.partitions=${{ matrix.partitions }}"
+        run: pio run -e ${{ matrix.env }}
