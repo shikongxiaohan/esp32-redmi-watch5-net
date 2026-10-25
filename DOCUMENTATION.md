@@ -180,6 +180,25 @@ python3 tools/push_watchface.py 表盘.bin --port COM3
 协议为行式 ASCII（命令前缀 `XWFP `，状态前缀 `XWFS `），
 与固件日志共线互不干扰，详见 `include/serialpush_proto.h`。
 
+**日志自动记录到供电的电脑（PC 侧，插线即记）**
+
+板子的串口日志本来就走在供电那根 USB 线上（115200）。`tools/serial_logger.py`
+在电脑侧自动识别板子串口并把日志落盘，无需手动开串口监视器，固件零改动：
+
+```bash
+pip install pyserial
+python3 tools/serial_logger.py                 # 自动识别串口，日志存 ./logs
+python3 tools/serial_logger.py --port COM3     # 指定串口（Windows）
+python3 tools/serial_logger.py --list          # 只列出串口，确认板子被识别
+```
+
+- 自动识别 CH340 / CH341 / CP210x / FT232 / PL2303 等 USB 转串口桥
+- 拔线、复位、掉线自动重连；每行带毫秒时间戳，按连接次分文件
+- 常用参数：`--dir` 输出目录、`--only-xw` 只留 `[xw]`/`XWFS` 行、`--max-mb` 单文件上限滚动
+- Windows 后台静默（无黑窗）：`pythonw tools\serial_logger.py --dir %USERPROFILE%\watch5-logs`，
+  需要开机自动记录就把它加进「任务计划程序」的登录时触发
+- 注意：串口同一时刻只能被一个程序打开，运行本工具前先关掉 Arduino IDE 的串口监视器
+
 > **表盘安装包缓存规则**
 > - 安装**成功** → 板子自动删除缓存包，不留残留
 > - 安装**失败** → 缓存保留，「表盘管理」页可「重新安装此包」或「删除缓存」
@@ -712,6 +731,7 @@ Flash 占用 45.1%（1.81MB / 4MB OTA 槽），RAM 27.8%。
 | OTA 页显示无可用回滚 | 另一分区被表盘临时文件覆盖（仅 4MB 兼容布局），或首次线刷尚无旧版本 |
 | LED 不亮 | 「配置」页的 GPIO 引脚填错（常见是 GPIO2），或点亮电平选反了；用「LED 测试」按钮确认 |
 | 性能页温度显示 – | WiFi 工作时 ESP32 内部温度传感器返回假值，属已知限制，其余指标不受影响 |
+| 板子偶发重启/掉线，事后无从查证 | 用 `tools/serial_logger.py` 挂后台自动落盘（插线即记、断线重连），日志文件带毫秒时间戳 |
 
 ## 12. 提取配对密钥（auth key）
 
@@ -831,7 +851,8 @@ esp32-redmi-watch5-net/
 │   └── SHA256SUMS.txt      # 校验值
 ├── .gitignore              # 忽略 .pio 构建产物与测试可执行文件
 ├── tools/
-│   └── push_watchface.py   # 串口推包脚本（把表盘 .bin 推到板子上）
+│   ├── push_watchface.py   # 串口推包脚本（把表盘 .bin 推到板子上）
+│   └── serial_logger.py    # 串口日志自动接收器（插线即记，存到电脑）
 ├── src/
 │   └── main.cpp            # 入口：对象接线、WiFi/NTP/时钟推送、上游 socket
 ├── include/

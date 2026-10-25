@@ -61,6 +61,11 @@ DHCP 获取 IP、DNS 解析、TCP/UDP 联网，并额外获得**天气推送**�
 > `http://该IP`（80 端口）即可；「状态」页会显示当前 IP。想固定访问，就在
 > 路由器里给板子 MAC 绑定静态 IP。串口日志（115200）不打印 IP。
 
+> **日志自动落盘到电脑**：板子的日志本来就走供电那根 USB 线。
+> `pip install pyserial` 后运行 `python3 tools/serial_logger.py`，插线即自动记录、
+> 拔线自动重连，日志存 `./logs`（带毫秒时间戳）；Windows 用 `pythonw` 可后台静默运行。
+> 固件零改动。
+
 ## 硬件要求
 
 - **开发板**：任何带**经典蓝牙** + WiFi 的原版 ESP32（WROOM-32 / WROVER / DevKitC）；

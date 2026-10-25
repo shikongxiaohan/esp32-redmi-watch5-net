@@ -23,6 +23,10 @@ tests/test_perf
 core.*
 core
 
+# 串口日志（tools/serial_logger.py 输出）
+logs/
+tools/logs/
+
 # 编辑器 / 系统
 .vscode/
 .DS_Store
