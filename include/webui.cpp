@@ -19,6 +19,20 @@
 namespace xw {
 
 // ---------------- HTML 转义 ----------------
+// 页面字符串统一从这里创建：一次性 reserve 大块，让首次堆分配直接落在
+// PSRAM（ESP-IDF 规则：单次分配 > CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL(4096)
+// 时只从外部内存分配）。否则 String 从 SSO 小块逐步 realloc 增长，会被
+// 锁死在 320KB 内部堆里——实测刷几次页面就把内部堆碎片化打穿
+// （heap 从 23KB 一路掉到 9KB，网页随后打不开），而 4MB PSRAM 纹丝不动。
+// 注意 reserve 必须一次给足：CSS 14KB + 最大 JS 块 6KB + HTML/动态内容，
+// 页面可能超 32KB。若 reserve 不够，String 中途 realloc 扩容会退回内部堆，
+// 前面的 PSRAM 分配就白费了。这里给 64KB 保险。
+static String newPageStr(size_t reserve = 65536) {
+    String s;
+    s.reserve(reserve);
+    return s;
+}
+
 static String htmlEsc(const char* s) {
     String r;
     if (!s) return r;
@@ -450,7 +464,7 @@ static void pageEnd(String& h, bool withDock = true) {
 
 static void sendResultPage(WebServer* server, int status, bool ok, const char* title,
                            const char* message, const char* back, UiPage active) {
-    String h;
+    String h = newPageStr();
     pageBegin(h, title, active);
     h += "<section class='card result'>";
     h += ok ? "<span class='badge ok'>操作完成</span>" : "<span class='badge bad'>操作未完成</span>";
@@ -481,7 +495,8 @@ static const char* stateName(xw::MwState s) {
 }
 
 void WebUi::_handleRoot() {
-    String h;
+    Serial.printf("[xw][web] enter / heap=%u psramFree=%u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram());
+    String h = newPageStr();
     h.reserve(8192);
     pageBegin(h, "运行状态", UiPage::Status, "5");
 
@@ -596,8 +611,9 @@ void WebUi::_handleRoot() {
 }
 
 void WebUi::_handleConfig() {
+    Serial.printf("[xw][web] enter /config heap=%u psramFree=%u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram());
     AppConfig& c = *_cfg;
-    String h;
+    String h = newPageStr();
     h.reserve(12288);
     pageBegin(h, "网关配置", UiPage::Config);
     h += "<form method='post' action='/save' id='config-form'>";
@@ -681,16 +697,16 @@ void WebUi::_handleConfig() {
     h += "<div class='field'><label for='led_pin'>GPIO 引脚</label>"
          "<input id='led_pin' name='led_pin' type='number' min='-1' max='48' "
          "aria-describedby='led-pin-help' value='" + String(c.ledPin) + "'>"
-         "<small id='led-pin-help' class='help'>-1 表示禁用；多数开发板板载 LED 在 GPIO2</small></div>";
+         "<small id='led-pin-help' class='help'>-1 表示禁用；ESP32-DevKitC / NodeMCU-32 系列板载 LED 在 GPIO2</small></div>";
     h += "<div class='field'><label for='led_low'>点亮电平</label><select id='led_low' name='led_low'>";
-    h += c.ledActiveLow ? "<option value='1' selected>低电平点亮（常见）</option><option value='0'>高电平点亮</option>"
-                        : "<option value='1'>低电平点亮（常见）</option><option value='0' selected>高电平点亮</option>";
+    h += c.ledActiveLow ? "<option value='1' selected>低电平点亮（GPIO2 板载 LED 默认）</option><option value='0'>高电平点亮</option>"
+                        : "<option value='1'>低电平点亮（GPIO2 板载 LED 默认）</option><option value='0' selected>高电平点亮</option>";
     h += "</select></div>";
     h += "</div><small class='help flush'>指示含义："
          "<strong>快闪</strong>启动中 · <strong>慢闪</strong>配网 AP · "
          "<strong>常亮</strong>已联网并连接手表 · <strong>极慢短闪</strong>已联网但手表未连接 · "
          "<strong>快速双闪</strong>蓝牙配对中 · <strong>短亮长灭</strong>正在安装表盘 · "
-         "<strong>方波</strong>正在升级固件。</small></section>";
+         "<strong>方波</strong>正在升级固件 · <strong>三连闪</strong>故障。</small></section>";
 
     h += "<div class='actions between card'><span class='help flush'>保存后设备将自动重启</span>"
          "<button type='submit' id='config-save'>保存配置并重启</button></div></form>";
@@ -754,6 +770,7 @@ void WebUi::_handleConfig() {
 }
 
 void WebUi::_handleSave() {
+    Serial.printf("[xw][web] enter /save heap=%u psramFree=%u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram());
     if (_otaBusy() || (_wf && _wf->busy())) {
         sendErrorPage(_server, 409, "暂时无法保存", "固件升级或表盘安装进行中，请等待当前任务完成。", "/config", UiPage::Config);
         return;
@@ -816,7 +833,7 @@ void WebUi::_handleSave() {
     }
 
     saveConfig(c);
-    String h;
+    String h = newPageStr();
     pageBegin(h, "配置已保存", UiPage::None, "4;url=/");
     h += "<section class='card'><span class='badge ok'>保存成功</span>"
          "<p>设备即将重启，4 秒后自动返回运行状态页。</p></section>";
@@ -828,7 +845,7 @@ void WebUi::_handleSave() {
 
 void WebUi::_handleWeather() {
     bool ok = _wx ? _wx->refreshNow() : false;
-    String h;
+    String h = newPageStr();
     pageBegin(h, "天气刷新", UiPage::None, "2;url=/");
     h += "<section class='card'>";
     h += ok ? "<span class='badge ok'>推送成功</span><p>最新天气已推送至手表。</p>"
@@ -843,7 +860,7 @@ void WebUi::_handleReboot() {
         sendErrorPage(_server, 409, "暂时无法重启", "固件升级或表盘安装进行中，请等待当前任务完成。", "/", UiPage::Status);
         return;
     }
-    String h;
+    String h = newPageStr();
     pageBegin(h, "正在重启", UiPage::None, "10");
     h += "<section class='card'><span class='badge neutral'>设备重启中</span>"
          "<p>请稍候，重启完成后可重新打开运行状态页。</p></section>";
@@ -863,7 +880,8 @@ void WebUi::_handleReboot() {
  * 数据全部由 /api/perf 提供，前端每 2 秒拉一次，不依赖外部 CDN。
  */
 void WebUi::_handlePerf() {
-    String h;
+    Serial.printf("[xw][web] enter /perf heap=%u psramFree=%u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram());
+    String h = newPageStr();
     h.reserve(9000);
     pageBegin(h, "性能监控", UiPage::Perf);
 
@@ -1082,6 +1100,7 @@ void WebUi::_handlePerf() {
 }
 
 void WebUi::_handlePerfApi() {
+    Serial.printf("[xw][web] enter /api/perf heap=%u psramFree=%u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram());
     if (!_perf) {
         _server->send(503, "application/json", "{\"err\":\"perf unavailable\"}");
         return;
@@ -1089,7 +1108,7 @@ void WebUi::_handlePerfApi() {
     const PerfSample& c = _perf->latest();
     const PerfHistory& hst = _perf->history();
 
-    String j;
+    String j = newPageStr(16384);
     j.reserve(3000 + hst.count() * 60);
     j += "{\"c\":{";
     // CPU 不可用（255）时输出 -1，前端显示为 –
@@ -1127,6 +1146,7 @@ void WebUi::_handlePerfApi() {
 }
 
 void WebUi::_handleApi() {
+    Serial.printf("[xw][web] enter /api/status heap=%u psramFree=%u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram());
     String j = "{";
     j += "\"uptime\":" + String(millis() / 1000);
     j += ",\"btConnected\":" + String(_wear && _wear->state() != xw::MwState::DISCONNECTED ? 1 : 0);
@@ -1159,7 +1179,8 @@ void WebUi::_handleApi() {
 
 // ---------------- 配对页 ----------------
 void WebUi::_handlePair() {
-    String h;
+    Serial.printf("[xw][web] enter /pair heap=%u psramFree=%u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram());
+    String h = newPageStr();
     h.reserve(12288);
     pageBegin(h, "手表配对", UiPage::Pair, (_bt && _bt->scanning()) ? "3" : nullptr);
 
@@ -1287,7 +1308,7 @@ void WebUi::_handlePairSave() {
         }
     }
     saveConfig(c);
-    String h;
+    String h = newPageStr();
     pageBegin(h, "配对已保存", UiPage::None, "4;url=/");
     h += "<section class='card'><span class='badge ok'>设置成功</span><table class='kv'>"
          "<tr><th scope='row'>手表 MAC</th><td class='filetd'>" + htmlEsc(c.watchMac) + "</td></tr>"
@@ -1361,7 +1382,8 @@ void WebUi::_pumpDuringUpload() {
 }
 
 void WebUi::_handleWatchface() {
-    String h;
+    Serial.printf("[xw][web] enter /watchface heap=%u psramFree=%u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram());
+    String h = newPageStr();
     h.reserve(16384);
     bool busy = _wf && _wf->busy();
     bool auth = _wear && _wear->authenticated();
@@ -1601,7 +1623,7 @@ void WebUi::_handleWfUploadChunk() {
 
 void WebUi::_handleWfUploadDone() {
     if (_wfUploadBad) {
-        String h;
+        String h = newPageStr();
         pageBegin(h, "表盘上传失败", UiPage::None, "4;url=/watchface");
         h += "<section class='card'><span class='badge bad'>安装未开始</span>"
              "<p>请确认手表已认证、文件为有效 .bin 表盘，且升级/安装任务未在进行中。</p>"
@@ -1846,7 +1868,8 @@ bool WebUi::_otaBusy() const {
 }
 
 void WebUi::_handleFirmware() {
-    String h;
+    Serial.printf("[xw][web] enter /firmware heap=%u psramFree=%u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram());
+    String h = newPageStr();
     h.reserve(12288);
     bool wfBusy = _wf && _wf->busy();
     bool pending = _ota && _ota->pendingVerify();
@@ -1946,7 +1969,7 @@ void WebUi::_handleFwUploadChunk() {
 
 void WebUi::_handleFwUploadDone() {
     bool ok = !_otaUploadBad && _ota && _ota->finish();
-    String h;
+    String h = newPageStr();
     pageBegin(h, ok ? "升级完成" : "升级失败", UiPage::None, ok ? nullptr : "6;url=/firmware");
     if (ok) {
         h += "<section class='card'><span class='badge ok'>写入成功</span>"
@@ -1971,7 +1994,7 @@ void WebUi::_handleFwUploadDone() {
 void WebUi::_handleFwRollback() {
     bool ok = _ota && !(_wf && _wf->busy()) && !_otaBusy() &&
               _ota->rollbackAvailable() && _ota->rollback();
-    String h;
+    String h = newPageStr();
     pageBegin(h, ok ? "正在回滚" : "回滚失败", UiPage::None, ok ? nullptr : "5;url=/firmware");
     if (ok) {
         h += "<section class='card'><span class='badge ok'>已切换启动分区</span>"
@@ -2027,6 +2050,10 @@ void WebUi::_handleLedTest() {
 }
 
 void WebUi::_handleNotFound() {
+    // 诊断：打印未匹配请求的 URI（排查「换页面卡死」用）
+    Serial.printf("[xw][web] 404: uri='%s' method=%d heap=%u psramFree=%u\n",
+                  _server->uri().c_str(), int(_server->method()),
+                  (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram());
     // AP 配网模式：任意域名都导回配置页（captive portal 行为）
     if (_apActive) {
         _server->sendHeader("Location", "http://192.168.4.1/config", true);
@@ -2108,6 +2135,13 @@ void WebUi::startAp() {
     String ssid = String("RedmiWatch5Net-") + suffix;
     const char* pass = _cfg->apPass[0] ? _cfg->apPass : nullptr;
     if (pass && std::strlen(pass) < 8) pass = nullptr; // WPA2 要求至少 8 位
+
+    // 显式固定 AP 网段并重启 DHCP 服务器。
+    // 实测：setup 里先 WiFi.mode(WIFI_STA) 再 softAP()，模式切换（STA -> AP_STA）
+    // 后 dhcps 可能没起来，客户端连上热点却卡在「正在获取 IP」。
+    // softAPConfig() 内部会 stop/start dhcps，显式调用一次即可修复。
+    WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1),
+                      IPAddress(255, 255, 255, 0));
     WiFi.softAP(ssid.c_str(), pass);
     delay(200);
     _dns = new DNSServer();
@@ -2128,7 +2162,16 @@ void WebUi::stopAp() {
 }
 
 void WebUi::loop() {
-    if (_server) _server->handleClient();
+    // 诊断：handleClient 执行耗时（>500ms 说明响应被阻塞/慢客户端拖死）
+    if (_server) {
+        uint32_t t0 = millis();
+        _server->handleClient();
+        uint32_t dt = millis() - t0;
+        if (dt > 500) {
+            Serial.printf("[xw][web] handleClient slow: %u ms, heap=%u\n",
+                          (unsigned)dt, (unsigned)ESP.getFreeHeap());
+        }
+    }
     if (_apActive && _dns) _dns->processNextRequest();
     const uint32_t now = millis();
     if (_wfStage.busy() && now - _wfLastDataMs > 30000) {

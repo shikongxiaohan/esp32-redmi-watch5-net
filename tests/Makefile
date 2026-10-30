@@ -13,6 +13,10 @@ MIWEAR_SRC := ../include/miwear.cpp
 MIWEAR_FLAGS := -DXW_HOST_TEST
 NETGW_SRC := ../include/netgw.cpp
 BTLINK_SRC := ../include/btlink.cpp
+# btlink.cpp 的「经典蓝牙控制器预初始化 / GAP bond 枚举」分支只在真机上生效，
+# 主机端用 esp_bt.cpp 桩（配套 esp_bt.h / esp_bt_hooks.h）把它补全，
+# 这样主机编译也能发现 IDF 接口签名漂移。
+BTLINK_STUB := esp_bt.cpp
 WATCHFACE_SRC := ../include/watchface.cpp
 SERIALPUSH_SRC := ../include/serialpush_proto.cpp
 FACECACHE_SRC := ../include/facecache.cpp
@@ -29,7 +33,7 @@ test_protocol: test_protocol.cpp $(PROTO_SRC) $(MIWEAR_SRC)
 test_netgw: test_netgw.cpp $(NETGW_SRC) $(PROTO_SRC)
 	$(CXX) $(CXXFLAGS) $(INC) -o $@ $^
 
-test_btlink: test_btlink.cpp $(BTLINK_SRC)
+test_btlink: test_btlink.cpp $(BTLINK_SRC) $(BTLINK_STUB)
 	$(CXX) $(CXXFLAGS) $(INC) -o $@ $^
 
 test_miwear: test_miwear.cpp $(MIWEAR_SRC) $(PROTO_SRC)

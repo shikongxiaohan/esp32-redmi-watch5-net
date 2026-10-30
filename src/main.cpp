@@ -15,6 +15,7 @@
  */
 #include <Arduino.h>
 #include <WiFi.h>
+#include <esp_heap_caps.h> // heap_caps_malloc_extmem_enable（大分配走 PSRAM 的阈值）
 #include <time.h> // struct tm / tm_gmtoff（configTime/getLocalTime 由 Arduino.h 提供）
 
 #include <sys/socket.h>
@@ -415,9 +416,11 @@ static void manageAutoReset() {
  */
 static uint32_t ledFaultUntilMs = 0; // 故障提示的截止时刻（0 = 无故障提示）
 
-// 表盘安装失败：让 LED 亮 3 秒提示一下，用户不用看网页也知道失败了
+// 表盘安装失败：让 LED 三连眨 3 秒提示一下，用户不用看网页也知道失败了
+// 亮 3 秒的写法对「3 连眨」没有意义（闪烁周期才是语义），这里给 6 秒，
+// 足够让用户看到至少两轮「三连眨 + 停顿」，又不会长期盖住正常状态。
 static void ledSignalFault() {
-    ledFaultUntilMs = millis() + 3000UL;
+    ledFaultUntilMs = millis() + 6000UL;
 }
 
 static void updateLed() {
@@ -430,7 +433,9 @@ static void updateLed() {
         led.setState(LedState::Error);
         return;
     }
-    if (ledFaultUntilMs != 0) ledFaultUntilMs = 0; // 提示已结束
+    if (ledFaultUntilMs != 0 && !ledFaultActive(ledFaultUntilMs, millis())) {
+        ledFaultUntilMs = 0; // 提示期已过，复位标记（只在真正过期时清，不能在期内清）
+    }
     LedState s;
     if (apMode) {
         s = LedState::ApMode;
@@ -499,17 +504,52 @@ void setup() {
     Serial.begin(115200);
     delay(300);
     Serial.println("\n[xw] Redmi Watch 5 network gateway starting...");
+    // 诊断：固件版本 + 内存水位（排查网页打不开用）
+    // psram=0 说明 PSRAM 没初始化成功；heap 低说明内部 RAM 紧张。
+    Serial.printf("[xw] fw=%s\n", XW_FW_VERSION);
+    // 保险：显式启用「大分配走 PSRAM」的 malloc 阈值。
+    // 预编译库的 psramInit() 理论上已调用，这里显式再调一次确保生效。
+    heap_caps_malloc_extmem_enable(4096);
+    // 一锤定音的验证：malloc 大块是否真的落到 PSRAM。
+    // 这行日志也是固件版本指纹——看到它说明刷的是含 PSRAM 页面修复的固件。
+    {
+        uint32_t psramBefore = (unsigned)ESP.getFreePsram();
+        void* probe = malloc(32769);
+        int32_t delta = probe ? (int32_t)(psramBefore - (unsigned)ESP.getFreePsram()) : -1;
+        Serial.printf("[xw] mem boot: heap=%u minHeap=%u psram=%u psramFree=%u\n",
+                      (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMinFreeHeap(),
+                      (unsigned)ESP.getPsramSize(), (unsigned)ESP.getFreePsram());
+        Serial.printf("[xw] malloc32K probe: %s, psramDelta=%d（期望约 32768，"
+                      "若为 0 说明大分配没走 PSRAM）\n",
+                      probe ? "ok" : "FAIL", delta);
+        free(probe);
+    }
 
     WebUi::loadConfig(cfg);
     normalizeMac(cfg.watchMac);
     normalizeHexKey(cfg.authKeyHex);
 
     // ---- 板载 LED ----
+    // 注意上电时序：自检必须在 updateLed() 第一次跑之前完成。
+    // 否则 setup 里后续的 WiFi.mode()/蓝牙初始化会把状态机切到 Connecting，
+    // 自检还没播完就被"状态指示"顶掉，用户只看到零星的闪，反而更迷惑。
     if (cfg.ledEnabled && cfg.ledPinValid()) {
         led.begin(cfg.ledPin, cfg.ledActiveLow);
         led.setState(LedState::Booting);
+        // 启动时打一条自检提示：换板子后对照这条日志就能判断接线是否匹配。
+        // 随后 LED 会「亮 700ms -> 灭 700ms -> 亮 700ms」，肉眼确认即可。
+        Serial.printf("[xw][led] pin=GPIO%d active=%s（期望：亮-灭-亮 各 700ms）\n",
+                      int(cfg.ledPin), cfg.ledActiveLow ? "LOW=点亮" : "HIGH=点亮");
+        Serial.printf("[xw][led] 若灯型相反（灭-亮-灭）说明极性反了，"
+                      "把「点亮电平」改成%s\n",
+                      cfg.ledActiveLow ? "高电平点亮" : "低电平点亮");
+        // selftest() 是同步阻塞的：内部自己 delay 走完 2.1 秒再返回，
+        // 这样它不会被后面 WiFi/蓝牙初始化引发的状态切换顶掉。
+        led.selftest();
+        Serial.println("[xw][led] 自检结束，转入状态指示");
     } else {
         led.begin(-1, cfg.ledActiveLow);
+        Serial.println("[xw][led] 未启用（ledEnabled 关闭或引脚无效）");
     }
 
     // ---- 接线（先 begin，startAp 依赖 _cfg） ----
@@ -537,17 +577,33 @@ void setup() {
     };
 
     wx.begin(wear, cfg);
+
+    // 关键：WiFi 必须在 web.begin() 之前初始化。
+    // WebServer::begin() 内部会 tcp_bind()，而 lwIP 的 tcpip 线程（和它的 mbox）
+    // 要等 WiFi.mode() / esp_netif_init() 才创建。顺序反了会直接断言失败：
+    //   assert failed: tcpip_send_msg_wait_sem ... (Invalid mbox)
+    // 这个是硬崩溃（不是警告），任何板子都会中招。
+    WiFi.mode(WIFI_STA);
+
+    // 注意：这里绝不能调用 WiFi.setSleep(false)！
+    // setSleep(false) = esp_wifi_set_ps(WIFI_PS_NONE)，把 WiFi modem sleep 关掉。
+    // 而 WiFi 与经典蓝牙共存时 modem sleep 必须保持开启（IDF 官方约束，
+    // espressif/esp-idf issue IDFGH-8094）：先关 sleep 再 esp_bt_controller_enable()，
+    // 会直接 abort 在 coex_core_enable()（Backtrace: coex_enable -> esp_bt_controller_enable）。
+    // 实测这块板子就是被这一行炸掉的：bt: init classic BT (master) 后立刻 abort。
+    // 默认值 WIFI_PS_MIN_MODEM 就是共存要的正确状态，什么都不用做。
+
     web.begin(wear, gw, wx, cfg, bt, wfInstaller, g_faces, ota);
     web.setLed(&led);
     web.setPerf(&perf);
     serialPush.begin(web);
+    Serial.printf("[xw] mem after web.begin: heap=%u psramFree=%u\n",
+                  (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram());
 
     // 性能监控必须在 web.begin 之后（需要访问 faceCache）
     beginPerfMon();
 
-    // WiFi（STA；无配置或超时则 AP 配网）
-    WiFi.mode(WIFI_STA);
-    WiFi.setSleep(false); // BT/WiFi 共存时降低延迟
+    // WiFi 已在 web.begin() 之前初始化，这里只做连接/开 AP
     if (cfg.hasWifi()) {
         Serial.printf("[xw] wifi connecting to %s\n", cfg.wifiSsid);
         WiFi.begin(cfg.wifiSsid, cfg.wifiPass);
@@ -567,6 +623,8 @@ void setup() {
     bt.onConnect = onWearConnect;
     bt.onDisconnect = onWearDisconnect;
     bt.begin(cfg.watchMac[0] ? cfg.watchMac : nullptr);
+    Serial.printf("[xw] mem after bt.begin: heap=%u psramFree=%u\n",
+                  (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getFreePsram());
 
     Serial.printf("[xw] watch mac: %s\n",
                   bt.hasWatchMac() ? bt.watchMacStr() : "(auto: bonded)");
@@ -575,6 +633,18 @@ void setup() {
 }
 
 void loop() {
+    // 诊断：周期打印内存水位（每 20 秒，排查网页/DNS 打不开用）
+    {
+        static uint32_t lastMemLog = 0;
+        uint32_t nowMs = millis();
+        if (nowMs - lastMemLog >= 20000) {
+            lastMemLog = nowMs;
+            Serial.printf("[xw] mem: heap=%u minHeap=%u psramFree=%u apClients=%d\n",
+                          (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMinFreeHeap(),
+                          (unsigned)ESP.getFreePsram(), WiFi.softAPgetStationNum());
+        }
+    }
+
     bt.loop();
     web.loop();
     serialPush.loop();

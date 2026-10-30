@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstring>
 #include <cstdio>
+#include <cstdarg>
 #include <string>
 
 // 测试可控制的假时钟
@@ -75,6 +76,17 @@ public:
         out += "\n";
     }
     void clear() { out.clear(); }
+    /* 可变参版本：真机 Serial.printf 的常用形态，固件代码里到处在用。
+     * 桩里累积到 out，同时按需要可以照常断言日志内容。 */
+    void printf(const char* fmt, ...) {
+        if (!fmt) return;
+        char buf[512];
+        va_list ap;
+        va_start(ap, fmt);
+        int n = std::vsnprintf(buf, sizeof(buf), fmt, ap);
+        va_end(ap);
+        if (n > 0) out.append(buf, std::size_t(n) < sizeof(buf) ? std::size_t(n) : sizeof(buf) - 1);
+    }
 };
 extern SerialStub Serial;
 

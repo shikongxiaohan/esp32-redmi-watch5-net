@@ -41,12 +41,14 @@ static void testLedPatterns() {
     // 常灭 / 常亮
     CHECK(ledPatternOf(LedState::Off).periodMs == 0);
     CHECK(ledPatternOf(LedState::Online).periodMs == -1);
-    CHECK(ledPatternOf(LedState::Error).periodMs == -1);
+    // 故障提示必须能与"正常联网（常亮）"区分开，不能也是常亮
+    CHECK(ledPatternOf(LedState::Error).periodMs != -1);
+    CHECK(ledPatternOf(LedState::Error).periodMs != 0);
     // 闪烁模式：周期内亮起时长必须小于周期
     const LedState flashing[] = {LedState::Booting, LedState::ApMode,
                                  LedState::Connecting, LedState::OnlineNoWatch,
                                  LedState::Pairing, LedState::WatchfaceBusy,
-                                 LedState::FirmwareBusy};
+                                 LedState::FirmwareBusy, LedState::Error};
     for (LedState s : flashing) {
         LedPattern p = ledPatternOf(s);
         CHECK(p.periodMs > 0);
@@ -63,25 +65,58 @@ static void testLedShouldBeOn() {
     CHECK(ledShouldBeOn(LedState::Online, 0));
     CHECK(ledShouldBeOn(LedState::Online, 999999));
 
-    // 启动快闪：周期 200ms，亮 100ms
+    // 启动单眨：周期 1600ms，亮 80ms
     CHECK(ledShouldBeOn(LedState::Booting, 0));
-    CHECK(ledShouldBeOn(LedState::Booting, 99));
-    CHECK(!ledShouldBeOn(LedState::Booting, 100));
-    CHECK(!ledShouldBeOn(LedState::Booting, 199));
-    CHECK(ledShouldBeOn(LedState::Booting, 200));
-    CHECK(ledShouldBeOn(LedState::Booting, 299));
-    CHECK(!ledShouldBeOn(LedState::Booting, 300));
+    CHECK(ledShouldBeOn(LedState::Booting, 79));
+    CHECK(!ledShouldBeOn(LedState::Booting, 80));
+    CHECK(!ledShouldBeOn(LedState::Booting, 1599));
+    CHECK(ledShouldBeOn(LedState::Booting, 1600));
+    CHECK(ledShouldBeOn(LedState::Booting, 1679));
+    CHECK(!ledShouldBeOn(LedState::Booting, 1680));
+
+    // 故障「三连眨 + 停顿」：周期 2400ms
+    //   0-99 亮 / 100-199 灭 / 200-299 亮 / 300-399 灭 / 400-499 亮 / 500-2399 灭
+    CHECK(ledShouldBeOn(LedState::Error, 0));
+    CHECK(!ledShouldBeOn(LedState::Error, 100));
+    CHECK(ledShouldBeOn(LedState::Error, 200));
+    CHECK(!ledShouldBeOn(LedState::Error, 300));
+    CHECK(ledShouldBeOn(LedState::Error, 400));
+    CHECK(!ledShouldBeOn(LedState::Error, 500));
+    // 停顿要够长，肉眼才能数清"三下"；不能像重启那样平均 200ms 眨一下
+    CHECK(!ledShouldBeOn(LedState::Error, 2399));
+    CHECK(ledShouldBeOn(LedState::Error, 2400));
+
+    // 关键回归：Error 一个周期内的亮段必须是 3 段，且总亮时长远小于周期。
+    // 早期版本 Error = {1200,150}，周期 1.2 秒，看起来正是"闪两下停一下"，
+    // 和 bootloader 崩溃重启的节奏撞车，排查时被误判成刷机失败。
+    {
+        int edges = 0;
+        bool prev = ledShouldBeOn(LedState::Error, 0);
+        for (uint32_t t = 1; t < 2400; t++) {
+            bool cur = ledShouldBeOn(LedState::Error, t);
+            if (cur && !prev) edges++;
+            prev = cur;
+        }
+        CHECK_EQ(edges, 2); // 除 t=0 的首段外，周期内还有两次由灭转亮 = 共 3 段
+    }
+    // 每个"非一次性"状态的周期都不应短于 1 秒，避免节奏被数成崩溃重启
+    const LedState steady[] = {LedState::Connecting, LedState::OnlineNoWatch,
+                               LedState::Error};
+    for (LedState s : steady) {
+        CHECK(ledPatternOf(s).periodMs >= 1000);
+    }
 }
 
 static void testLedWraparound() {
     // millis() 回绕：now 从 0xFFFFFFF0 之后绕到 0x00000010
     // 状态机用 now % period 计算相位，回绕后仍应正确
-    LedState s = LedState::Booting; // 周期 200ms
+    LedState s = LedState::Booting; // 周期 1600ms，亮 80ms
+    LedPattern p = ledPatternOf(s);
     uint32_t base = 0xFFFFFFF0u;
     // 环绕点附近
     for (uint32_t d = 0; d < 64; d++) {
         uint32_t now = base + d; // 会自然回绕
-        bool expect = (now % 200u) < 100u;
+        bool expect = (now % (uint32_t)p.periodMs) < (uint32_t)p.onMs;
         CHECK_EQ(ledShouldBeOn(s, now) ? 1 : 0, expect ? 1 : 0);
     }
 }
@@ -101,6 +136,38 @@ static void testLedPriority() {
     CHECK(ledMerge(LedState::ApMode, LedState::Online) == LedState::ApMode);
     CHECK(ledMerge(LedState::Online, LedState::Online) == LedState::Online);
     CHECK(ledMerge(LedState::Off, LedState::Online) == LedState::Online);
+}
+
+
+// ============ 修复：状态内相位（进状态立刻可见） ============
+
+static void testLedPhase() {
+    // 常亮/常灭不看相位
+    CHECK(ledPhaseFor(0, ledPatternOf(LedState::Online)) == 0);
+    CHECK(ledPhaseFor(9999, ledPatternOf(LedState::Off)) == 0);
+
+    // 首个周期内：相位 = 已持续时长，进状态即为 0 -> 立刻点亮
+    LedPattern p = ledPatternOf(LedState::OnlineNoWatch); // {2000, 100}
+    CHECK(ledPhaseFor(0, p) == 0);
+    CHECK(ledPhaseFor(50, p) == 50);
+    CHECK(ledShouldBeOn(LedState::OnlineNoWatch, ledPhaseFor(0, p)));
+
+    // 超过一个周期后按周期回绕
+    CHECK(ledPhaseFor(2000, p) == 0);
+    CHECK(ledPhaseFor(2050, p) == 50);
+    CHECK(ledPhaseFor(4100, p) == 100);
+
+    // 关键回归：以前直接用 millis() 绝对值，上电时刻落在"灭"区间时
+    // 进状态后一段时间看不到任何反应。现在无论"上电多久后"进状态，
+    // 第一帧一定是亮的。
+    const LedState all[] = {LedState::Booting, LedState::ApMode,
+                            LedState::Connecting, LedState::OnlineNoWatch,
+                            LedState::Pairing, LedState::WatchfaceBusy,
+                            LedState::FirmwareBusy, LedState::Error};
+    for (LedState s : all) {
+        LedPattern q = ledPatternOf(s);
+        CHECK(ledShouldBeOn(s, ledPhaseFor(0, q)));
+    }
 }
 
 // ============ 修复 1：protobuf 长度字段整数溢出 ============
@@ -320,6 +387,7 @@ int main() {
     testLedShouldBeOn();
     testLedWraparound();
     testLedPriority();
+    testLedPhase();
     testLedFault();
     testPbLengthOverflow();
     testAuthConfirm();

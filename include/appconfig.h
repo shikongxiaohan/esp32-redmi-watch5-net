@@ -34,9 +34,12 @@ struct AppConfig {
     bool autoResetEn = false;
     uint16_t autoResetMin = 10; // 1..1440 分钟
     // 板载 LED 状态指示
-    // 引脚号：-1 = 禁用，0 = GPIO0，2 = GPIO2（多数 ESP32 开发板板载 LED 在 GPIO2）
+    // 引脚号：-1 = 禁用；默认 GPIO2。
+    // 依据：乐鑫 ESP32-DevKitC 官方引脚表把 RGB/板载 LED 标在 IO2 上，
+    // NodeMCU-32 系列（YD-ESP32-B 属此类布局）同样在 GPIO2 挂板载 LED。
     int8_t ledPin = 2;
-    // true = 低电平点亮（多数开发板），false = 高电平点亮
+    // true = 低电平点亮（灌电流接法：3.3V -> 电阻 -> LED -> GPIO2）
+    // 上述板型的板载 LED 默认是这种接法；若实测灯型相反，改选高电平即可
     bool ledActiveLow = true;
     // 是否启用 LED 指示
     bool ledEnabled = true;

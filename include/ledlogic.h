@@ -45,7 +45,24 @@ LedPattern ledPatternOf(LedState s);
 const char* ledStateName(LedState s);
 
 // 计算某状态下、给定时刻的 LED 输出（true=亮）
+// nowMs 为"相对该状态开始时刻"的偏移，而不是 millis() 绝对值。
+// 否则所有状态共用上电时刻的相位：进状态那一刻灯可能是灭的，
+// 用户看不到任何变化，于是所有闪烁看起来一模一样。
 bool ledShouldBeOn(LedState state, uint32_t nowMs);
+
+/*
+ * 把"状态保持"折算成状态内的相位偏移。
+ *
+ * 背景：若直接用 millis() % period 判定，闪烁相位由设备上电时刻决定，
+ * 与用户何时触发该状态无关。例如上电 500ms 后进入 OnlineNoWatch
+ * (周期 2000ms)，相位 500 落在"灭"区间，灯要再等 1.5 秒才亮——
+ * 用户看到的是"没反应"。
+ *
+ * 做法：相位 = min(该状态已持续时长, period)，即每次进入状态都从
+ * "由亮开始"重新计时，第一个周期完整走完，之后按周期回绕。
+ * 用 min 而不是取模，保证状态持续很久时相位仍在 [0, period) 内。
+ */
+uint32_t ledPhaseFor(uint32_t stateHeldMs, const LedPattern& p);
 
 // 状态优先级：数值越大优先级越高，用于合并多个并发事件
 int ledPriority(LedState s);

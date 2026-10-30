@@ -9,6 +9,7 @@
 // 用于按 ESP-IDF 主版本适配 GAP bonded 列表接口的原型差异
 #include <esp_idf_version.h>
 #endif
+#include <esp_bt.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
@@ -130,6 +131,26 @@ void BtLink::macToString(const uint8_t mac[6], char out[18]) {
 
 void BtLink::begin(const char* watchMac) {
     _log("bt: init classic BT (master)");
+
+    // 关键：释放 BLE 内存必须在 controller IDLE 状态（init 之前）调用。
+    // IDF v4.4 bt.c 源码实锤：状态非 IDLE 直接返回 ESP_ERR_INVALID_STATE(0x103)。
+    // 正确时序：IDLE 时 mem_release 把 BLE 预留的 DRAM 区域归还系统堆，
+    // 随后 init 就不再为 BLE 分配。init 之后的状态交给 BluetoothSerial::begin
+    // 内部的 btStart()：它检测到 INITED 会直接执行 enable，逻辑完美衔接。
+    // 纯经典蓝牙（SPP）场景回收内部 RAM，缓解网页/DNS 的 ENOMEM。
+    {
+        esp_err_t bleRel = esp_bt_controller_mem_release(ESP_BT_MODE_BLE);
+        if (bleRel == ESP_OK) {
+            Serial.printf("[xw][bt] BLE mem released (classic-only)\n");
+        } else {
+            Serial.printf("[xw][bt] BLE mem release failed: 0x%x\n", (unsigned)bleRel);
+        }
+        esp_bt_controller_config_t btCfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
+        if (esp_bt_controller_init(&btCfg) != ESP_OK) {
+            Serial.println("[xw][bt] controller pre-init failed");
+        }
+    }
+
     _serial.begin("RedmiWatch5Net", true);
     _serial.enableSSP(); // Just Works（手表端确认配对）
     _stream.attach(_serial);
