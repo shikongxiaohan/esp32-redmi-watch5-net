@@ -1,6 +1,6 @@
 # ESP32 红米 Watch 5 网络网关 · 完整文档
 
-> 当前版本 **v1.5.0** · 本文档为项目唯一完整文档，整合了原 `README.md`、
+> 当前版本 **v1.6.0** · 本文档为项目唯一完整文档，整合了原 `README.md`、
 > `docs/protocol-notes.md`、`docs/ui-plan.md`、`firmware/使用说明.md` 的全部内容。
 
 ## 目录
@@ -85,13 +85,13 @@ DHCP 获取 IP、DNS 解析、TCP/UDP 联网，并额外获得**天气推送**�
 
 | 文件 | 用途 |
 | --- | --- |
-| `firmware/watch5-net-v1.5.0-full-16mb.bin` | USB 整片烧录，**首次必须用这个**（16MB 板） |
-| `firmware/watch5-net-v1.5.0-ota.bin` | Web「固件升级」页上传，后续免插线升级 |
+| `firmware/watch5-net-v1.6.0-full-16mb.bin` | USB 整片烧录，**首次必须用这个**（16MB 板） |
+| `firmware/watch5-net-v1.6.0-ota.bin` | Web「固件升级」页上传，后续免插线升级 |
 
 ```bash
 # USB 整片烧录（首次 / 救砖）
 esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 921600 \
-  write_flash -z 0x0 firmware/watch5-net-v1.5.0-full-16mb.bin
+  write_flash -z 0x0 firmware/watch5-net-v1.6.0-full-16mb.bin
 ```
 
 文件名规则：`watch5-net-<版本>-<用途>.bin`，详细说明与校验值见
@@ -214,7 +214,7 @@ python3 tools/serial_logger.py --list          # 只列出串口，确认板子�
 NVS 配置和蓝牙绑定，烧录后需要重新配网并重新配对手表。
 
 1. 打开 Web 页 →「固件升级」
-2. 选择 `firmware/watch5-net-v1.5.0-ota.bin`（自编译则是
+2. 选择 `firmware/watch5-net-v1.6.0-ota.bin`（自编译则是
    `.pio/build/esp32dev/firmware.bin`；**不要**选 `-full-16mb.bin` 合并镜像）
 3. 点「上传并升级」，页面会提示正在写入；保持供电和网络，设备完成后自动重启
 4. 新固件启动后，**成功连上已配置的 WiFi** 并稳定 60 秒会自动确认；若 180 秒仍
@@ -254,17 +254,43 @@ NVS 配置和蓝牙绑定，烧录后需要重新配网并重新配对手表。
 
 状态与灯型对应关系：
 
-| 状态 | 灯型 | 含义 |
-| --- | --- | --- |
-| 启动中 | 快闪 | 固件刚起来 |
-| 配网 AP 模式 | 慢闪 | 正在等用户连热点配网 |
-| 连接 WiFi 中 | 单闪 | 正在握手 |
-| 已联网且手表已连接 | **常亮** | 正常工作 |
-| 已联网但手表未连接 | 极慢短闪 | 网关在线，等手表 |
-| 蓝牙配对中 | 快速双闪 | 正在扫描/配对手表 |
-| 正在安装表盘 | 短亮长灭 | 表盘在往手表里传 |
-| 正在升级固件 | 方波 | OTA 写入或等待确认 |
-| 故障 | 常亮 3 秒 | 表盘安装失败等 |
+| 状态 | 灯型（周期 / 亮） | 肉眼描述 | 含义 |
+| --- | --- | --- | --- |
+| 启动中 | 1600ms / 80ms | 单眨一下 | 刚上电，随后进入 2.1 秒自检 |
+| 配网 AP 模式 | 1000ms / 120ms | 每秒一眨 | 等用户连热点配网 |
+| 连接 WiFi 中 | 1000ms / 250ms | 每秒一闪 | 正在握手 |
+| 已联网且手表已连接 | 常亮 | **长亮** | 正常工作 |
+| 已联网但手表未连接 | 2000ms / 100ms | 每 2 秒一眨 | 网关在线，等手表 |
+| 蓝牙配对中 | 400ms / 200ms | 快速连闪 | 正在扫描/配对手表 |
+| 正在安装表盘 | 300ms / 150ms | 密集快闪 | 表盘在往手表里传 |
+| 正在升级固件 | 1000ms / 500ms | 方波 | OTA 写入或等待确认 |
+| 故障 | 2400ms / 100ms×3 | **眨三下、停两秒** | 表盘安装失败等 |
+
+> **为什么故障是「三连眨 + 长停顿」而不是「闪两下停一下」**：
+> ESP32 刷坏固件时 bootloader 会不断重启，板子上看到的就是「闪两下停一下」
+> 的节奏，和 1.2 秒周期的普通闪烁几乎无法区分——排查时会直接把正常的
+> 「连接中」误判成"刷机失败"。所以故障灯型固定为 **一个周期内眨 3 下、
+> 然后灭近 2 秒**，与任何"普通闪烁"和"重启循环"都能一眼分开。
+
+> **闪烁相位说明**：每次状态切换时，闪烁都从「亮」开始重新计时，
+> 而不是沿用设备上电时刻的相位。这样进入任何状态都能立刻看到灯亮，
+> 不会出现"切过去了但灯要等一会儿才有反应"的错觉。
+
+**换板子后如何确认接线对不对**：启动时串口会打印
+`[xw][led] pin=GPIOx active=...（期望：亮-灭-亮 各 700ms）`，
+随后 LED 自动做一次「亮 700ms → 灭 700ms → 亮 700ms」的自检。
+- 看到 **亮-灭-亮** → 引脚与极性都对
+- 看到 **灭-亮-灭** → 极性反了，去配置页把「点亮电平」改成另一项
+- **全程无反应** → 引脚号不对，需要换 GPIO 试（或在网页点「LED 测试」按钮）
+
+> 自检是**阻塞执行**的（持续约 2.1 秒，发生在 `setup()` 阶段，此时还没有任何
+> 服务在跑）。早期版本把自检交给 `loop()` 分片执行，结果紧接着的
+> `WiFi.mode()` / 蓝牙初始化立刻把状态切成「连接中」，自检被顶掉，
+> 用户只看到零星一闪就被"状态指示"接管——反而误以为灯坏了。
+
+> **GPIO2 与启动**：GPIO2 是 strapping 引脚，上电瞬间的电平参与启动模式判定。
+> 本固件**不会**为了"先灭灯"而把 GPIO2 拉高，而是先置为高阻输入，
+> 等第一次需要点亮时才切为推挽输出，避免干扰正常启动。
 
 运行状态页也会显示当前 LED 状态，`/api/status` 接口里有 `led` 字段。
 
@@ -364,7 +390,7 @@ NVS 配置和蓝牙绑定，烧录后需要重新配网并重新配对手表。
 4. **零外部依赖**：CSS 内联、图标用内联 SVG、图表用 Canvas。
 5. **渐进增强**：`prefers-color-scheme` 与 `prefers-reduced-motion` 都做，不支持则退回基础样式。
 
-**问题与改进对照**（v1.5.0 已全部实施）：
+**问题与改进对照**（v1.6.0 已全部实施）：
 
 | 编号 | 原问题 | 实施方案 |
 | --- | --- | --- |
@@ -691,7 +717,7 @@ locale 索引与 Gadgetbridge `FACE_LOCALE_BITMAP_LIST` 一致：
 ## 10. 测试
 
 ```bash
-cd tests && make        # 全部 33,781 项检查，无需 ESP32 工具链
+cd tests && make        # 全部 33,813 项检查，无需 ESP32 工具链
 ```
 
 | 测试文件 | 检查项 | 覆盖 |
@@ -703,7 +729,7 @@ cd tests && make        # 全部 33,781 项检查，无需 ESP32 工具链
 | `test_watchface.cpp` | 179 | 表盘解析 / 完整安装流程 / 失败路径 |
 | `test_ota.cpp` | 6 | OTA 应用镜像头校验 |
 | `test_serialpush.cpp` | 121 | 串口推包协议 / Base64 / 缓存 TTL |
-| `test_led.cpp` | 164 | LED 状态闪烁模式（含 millis 回绕） |
+| `test_led.cpp` | 196 | LED 状态闪烁模式（含 millis 回绕） |
 | `test_perf.cpp` | 72 | 性能纯逻辑（百分比/速率/健康度/环形历史） |
 
 覆盖范围：CRC-16/CRC-32/SHA-256/MD5/HMAC/KDF（标准向量 + 流式一致性）、protobuf 编解码、
@@ -726,10 +752,11 @@ Flash 占用 45.1%（1.81MB / 4MB OTA 槽），RAM 27.8%。
 | 手表显示已连接但无法上网 | 看状态页「网关包」计数是否为 0；检查 WiFi 是否连通 |
 | WiFi 连不上 | 20 秒后自动进 AP 配网模式，重新配置 |
 | 日志出现 `watch hmac mismatch` | auth key 不对，重新提取 |
-| OTA 页上传被拒绝 | 确认上传的是 `-ota.bin`（如 `watch5-net-v1.5.0-ota.bin`），不是 `-full-16mb.bin` 合并镜像或表盘文件 |
+| OTA 页上传被拒绝 | 确认上传的是 `-ota.bin`（如 `watch5-net-v1.6.0-ota.bin`），不是 `-full-16mb.bin` 合并镜像或表盘文件 |
 | OTA 后反复重启 | 新固件未通过 180 秒健康检查会自动回滚；也可在升级页手动回滚 |
 | OTA 页显示无可用回滚 | 另一分区被表盘临时文件覆盖（仅 4MB 兼容布局），或首次线刷尚无旧版本 |
-| LED 不亮 | 「配置」页的 GPIO 引脚填错（常见是 GPIO2），或点亮电平选反了；用「LED 测试」按钮确认 |
+| LED 不亮 | 「配置」页的 GPIO 引脚填错（ESP32-DevKitC / NodeMCU-32 系列是 GPIO2），或点亮电平选反了；先看启动串口的 `[xw][led]` 自检日志，再用「LED 测试」按钮确认 |
+| 刷完不启动、灯「闪两下停一下」 | **先别下结论**：先按 BOOT 再点 RST（或按住 BOOT 插线）看灯是否变成长亮/常亮——能进下载模式说明芯片没坏，问题在 Flash 配置或烧录内容。正常的「连接中」是每秒一闪，只有故障灯是「眨三下停两秒」。确认真是崩溃循环，见 §4.1 烧录说明（Flash 模式必须为 **DIO + 40MHz**、镜像必须烧到 0x0） |
 | 性能页温度显示 – | WiFi 工作时 ESP32 内部温度传感器返回假值，属已知限制，其余指标不受影响 |
 | 板子偶发重启/掉线，事后无从查证 | 用 `tools/serial_logger.py` 挂后台自动落盘（插线即记、断线重连），日志文件带毫秒时间戳 |
 
@@ -768,8 +795,8 @@ Flash 占用 45.1%（1.81MB / 4MB OTA 槽），RAM 27.8%。
 
 | 文件 | 大小 | 用途 | 烧录方式 |
 | --- | --- | --- | --- |
-| `watch5-net-v1.5.0-ota.bin` | 1,892,560 B (1.81MB) | 应用 OTA 镜像 | Web「固件升级」页上传，或 esptool 写 `0x10000` |
-| `watch5-net-v1.5.0-full-16mb.bin` | 16,777,216 B (16MB) | 整片合并镜像 | 仅 USB：`esptool write_flash 0x0`（首次烧录 / 救砖 / 安卓 OTG 线刷） |
+| `watch5-net-v1.6.0-ota.bin` | 1,915,392 B (1.83MB) | 应用 OTA 镜像 | Web「固件升级」页上传，或 esptool 写 `0x10000` |
+| `watch5-net-v1.6.0-full-16mb.bin` | 16,777,216 B (16MB) | 整片合并镜像 | 仅 USB：`esptool write_flash 0x0`（首次烧录 / 救砖 / 安卓 OTG 线刷） |
 
 > 两者**不能混用**：合并镜像包含 bootloader 与分区表，上传到 OTA 页会被拒绝；
 > OTA 镜像用于已烧录过双 OTA 分区表的设备。
@@ -780,7 +807,7 @@ Flash 占用 45.1%（1.81MB / 4MB OTA 槽），RAM 27.8%。
 
 ### 当前版本
 
-- 版本号 **1.5.0**（定义于 `platformio.ini` 的 `XW_FW_VERSION`）
+- 版本号 **1.6.0**（定义于 `platformio.ini` 的 `XW_FW_VERSION`）
 - 目标板：ESP32（经典蓝牙 + WiFi），**16MB Flash**
 - 分区表：`partitions.csv`（双 OTA 槽 4MB + **独立表盘分区 4MB** + nvs + otadata + coredump）
 - 资源占用：Flash 45.1%（应用区 1.81MB / 4MB 槽），RAM 27.8%
@@ -795,11 +822,11 @@ Flash 占用 45.1%（1.81MB / 4MB OTA 槽），RAM 27.8%。
 ```bash
 # 首次 / 换机 / 分区表变更后：整片烧录（会清除 WiFi 配置和蓝牙绑定）
 esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 921600 \
-  write_flash -z 0x0 watch5-net-v1.5.0-full-16mb.bin
+  write_flash -z 0x0 watch5-net-v1.6.0-full-16mb.bin
 
 # 后续增量升级：只写应用分区
 esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 921600 \
-  write_flash -z 0x10000 watch5-net-v1.5.0-ota.bin
+  write_flash -z 0x10000 watch5-net-v1.6.0-ota.bin
 ```
 
 更推荐的方式：整片烧录成功后，后续升级直接在 Web「固件升级」页上传 `-ota.bin`，
@@ -823,7 +850,7 @@ pio run -t upload          # 编译并 USB 烧录
 
 ```bash
 python3 ~/.platformio/packages/tool-esptoolpy/esptool.py --chip esp32 merge_bin \
-  -o watch5-net-v1.5.0-full-16mb.bin \
+  -o watch5-net-v1.6.0-full-16mb.bin \
   --flash_mode dio --flash_freq 40m --flash_size 16MB --fill-flash-size 16MB \
   0x1000  .pio/build/esp32dev/bootloader.bin \
   0x8000  .pio/build/esp32dev/partitions.bin \
@@ -846,8 +873,8 @@ esp32-redmi-watch5-net/
 ├── DOCUMENTATION.md        # 完整文档（本文件）
 ├── LICENSE
 ├── firmware/               # 已编译的可烧录固件
-│   ├── watch5-net-v1.5.0-full-16mb.bin   # USB 整片烧录（首次）
-│   ├── watch5-net-v1.5.0-ota.bin        # Web OTA 升级
+│   ├── watch5-net-v1.6.0-full-16mb.bin   # USB 整片烧录（首次）
+│   ├── watch5-net-v1.6.0-ota.bin        # Web OTA 升级
 │   └── SHA256SUMS.txt      # 校验值
 ├── .gitignore              # 忽略 .pio 构建产物与测试可执行文件
 ├── tools/
@@ -883,7 +910,7 @@ esp32-redmi-watch5-net/
     ├── test_watchface.cpp  #   表盘解析/完整安装流程/失败路径（179 项）
     ├── test_ota.cpp        #   OTA 应用镜像头校验（6 项）
     ├── test_serialpush.cpp #   串口推包协议/Base64/缓存 TTL（121 项）
-    ├── test_led.cpp        #   LED 闪烁模式（164 项）
+    ├── test_led.cpp        #   LED 闪烁模式、相位与故障灯语（196 项）
     ├── test_perf.cpp       #   性能纯逻辑（72 项）
     └── *.h                 #   主机桩（Arduino/BluetoothSerial/FreeRTOS）
 ```

@@ -5,7 +5,7 @@
 [![Release](https://img.shields.io/github/v/release/shikongxiaohan/esp32-redmi-watch5-net.svg)](https://github.com/shikongxiaohan/esp32-redmi-watch5-net/releases/latest)
 
 > **完整文档请见 [DOCUMENTATION.md](DOCUMENTATION.md)**（协议细节、使用手册、固件发布、测试说明等全部内容）。
-> 当前版本 **v1.5.0** · ESP32 / Arduino · 16MB Flash
+> 当前版本 **v1.6.0** · ESP32 / Arduino · 16MB Flash
 
 运行在 ESP32 开发板上的独立固件，**替代小米运动健康（Mi Fitness）App**，为
 **红米 Watch 5 蓝牙版（非 eSIM，无 WiFi）**提供完整的互联网接入能力。
@@ -39,19 +39,35 @@ DHCP 获取 IP、DNS 解析、TCP/UDP 联网，并额外获得**天气推送**�
 
 ## 快速开始
 
-1. **烧录**：用 `firmware/watch5-net-v1.5.0-full-16mb.bin` 整片烧录（16MB 板，首次必须）
+1. **烧录**：用 `firmware/watch5-net-v1.6.0-full-16mb.bin` 整片烧录（16MB 板，首次必须）
 
    ```bash
    esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 921600 \
-     write_flash -z 0x0 firmware/watch5-net-v1.5.0-full-16mb.bin
+     write_flash -z 0x0 firmware/watch5-net-v1.6.0-full-16mb.bin
    ```
+
+   **用乐鑫 Flash Download Tool（GUI）时只有 3 个坑**，逐个对上即可：
+
+   | 界面项 | 必须的值 | 填错会怎样 |
+   | --- | --- | --- |
+   | 文件行 `@` 地址 | **`0x0`** | 填 `0x1000`/`0x10000` → bootloader 或应用错位，无限重启 |
+   | `SPI SPEED` / `SPI MODE` | **`40MHz` / `DIO`** | 选 QIO 反而起不来：ROM 读 bootloader 第 2 段就报 `load:0x3fffff30,len:1` → RTCWDT 复位 |
+   | `FLASH SIZE` | **`16MB`** | 选 4MB → 只写前 4MB，表盘分区丢失 |
+   | 勾选项 | `DoNotChgBin` **不勾** | 勾上会用界面值覆盖镜像头，和固件里编译的 DIO/40MHz 打架 |
+
+   > 这一行是踩过坑换来的：固件按 **DIO + 40MHz** 编译（镜像头 `e9 03 02 40`，
+   > 第 3 字节 `0x02`=DIO，第 4 字节 `0x40`=16MB\|40MHz）。曾按 WROVER-E 的
+   > 理论要求改成 QIO，结果板子直接进 RTCWDT 复位循环，改回 DIO 才正常启动。
+
+   烧完先点 `RST`，再按住 `BOOT` 点一下 `RST` 做对照：**能进下载模式就说明
+   芯片没坏**，剩下的问题一定在"烧了什么、烧到哪、用什么模式读"这三件事上。
 
 2. **配网**：连接热点 `RedmiWatch5Net-XXXX` → 浏览器打开 <http://192.168.4.1> → 「配置」页填 WiFi
 3. **配对**：Web 页 →「配对」→ 扫描约 8 秒 → 选择 **Redmi Watch 5** → 在手表上确认
 4. **密钥**：从小米运动健康 App 提取 16 字节 hex auth key 填入「配置」页，保存重启
 5. **完成**：「状态」页显示 *运行正常 · 已联网 · 手表已认证*，手表即可上网
 
-后续升级无需数据线：Web「固件升级」页上传 `firmware/watch5-net-v1.5.0-ota.bin`。
+后续升级无需数据线：Web「固件升级」页上传 `firmware/watch5-net-v1.6.0-ota.bin`。
 
 > 手表需先恢复出厂或取消旧手机配对；密钥提取需 root 或 App 备份，详见完整文档。
 
@@ -78,8 +94,8 @@ DHCP 获取 IP、DNS 解析、TCP/UDP 联网，并额外获得**天气推送**�
 
 | 文件 | 大小 | 用途 |
 | --- | --- | --- |
-| [`firmware/watch5-net-v1.5.0-full-16mb.bin`](firmware/watch5-net-v1.5.0-full-16mb.bin) | 16MB | USB 整片烧录（首次 / 救砖） |
-| [`firmware/watch5-net-v1.5.0-ota.bin`](firmware/watch5-net-v1.5.0-ota.bin) | 1.81MB | Web「固件升级」页上传 |
+| [`firmware/watch5-net-v1.6.0-full-16mb.bin`](firmware/watch5-net-v1.6.0-full-16mb.bin) | 16MB | USB 整片烧录（首次 / 救砖） |
+| [`firmware/watch5-net-v1.6.0-ota.bin`](firmware/watch5-net-v1.6.0-ota.bin) | 1.83MB | Web「固件升级」页上传 |
 
 校验值见 [`firmware/SHA256SUMS.txt`](firmware/SHA256SUMS.txt)。
 
@@ -91,7 +107,7 @@ pio run -t upload   # 编译并烧录
 pio device monitor  # 查看日志（115200）
 ```
 
-主机端测试（无需 ESP32 工具链，**33,781 项检查**）：
+主机端测试（无需 ESP32 工具链，**33,813 项检查**）：
 
 ```bash
 cd tests && make
