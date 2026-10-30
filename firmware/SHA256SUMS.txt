@@ -1,2 +1,2 @@
-474d1528e8b0e15430abefdb0c8ac198fd707dafe255c2b6f3a7c35de248aa44  watch5-net-v1.5.0-full-16mb.bin
-145c6e0b51054859c663dcd207ee78c8e26ea3d296aac2aa6f084f30bc5746f7  watch5-net-v1.5.0-ota.bin
+d305fc04bf34acbfac188c0721b86667cfd644e2cd4eb84a9fe173250ccea04c  watch5-net-v1.6.0-full-16mb.bin
+6b6e7b10b86757ce743842690a47c0c029db2a0516fa0cb419b436a2e4e63d16  watch5-net-v1.6.0-ota.bin
